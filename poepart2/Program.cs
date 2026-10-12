@@ -16,6 +16,7 @@ namespace poepart2
 
             // Configure the HTTP request pipeline.
 
+
             app.UseHttpsRedirection();
 
             app.UseAuthorization();
