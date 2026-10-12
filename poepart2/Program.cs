@@ -10,6 +10,8 @@ namespace poepart2
 
             builder.Services.AddControllers();
 
+            builder.Services.AddSwaggerGen();
+
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.
@@ -17,6 +19,8 @@ namespace poepart2
             app.UseHttpsRedirection();
 
             app.UseAuthorization();
+            app.UseSwagger();
+            app.UseSwaggerUI();
 
 
             app.MapControllers();
