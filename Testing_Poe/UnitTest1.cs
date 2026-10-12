@@ -210,67 +210,126 @@ namespace poepart2
         }
 
 
+        // Test getting all organizers
+        [Fact]
+        public void testOrganizerGetAll()
+        {
+            OrganizerController controller = new OrganizerController();
+
+            string results = controller.getOrganizer();
+
+            string expected_results =
+                "ID: 1, Name: John Smith, Email: john@gmail.com\n" +
+                "ID: 2, Name: Mary Jones, Email: mary@gmail.com\n";
+
+            Assert.Equal(expected_results, results);
+        }
+
+        // Test adding an organizer with valid email and password
         [Fact]
         public void test_OrganizerAdd()
         {
-            // Instance with object
-            OrganizerController add_organizer = new OrganizerController();
+            OrganizerController controller = new OrganizerController();
 
-            // Add request method
-            string results = add_organizer.AddOrganizer(
+            string results = controller.AddOrganizer(
                 "David Brown",
-                "david@example.com"
-            );
+                "david@gmail.com",
+                "Password123!");
 
             string expected_results = "Organizer added successfully.";
 
             Assert.Equal(expected_results, results);
         }
 
-
+        // Test getting an organizer using email and password
         [Fact]
-        public void test_OrganizerGetById()
+        public void test_OrganizerGetByEmailAndPassword()
         {
-            // Instance with object
-            OrganizerController get_organizer = new OrganizerController();
+            OrganizerController controller = new OrganizerController();
 
-            // Get request method
-            string results = get_organizer.GetOrganizerById(1);
+            string results = controller.GetOrganizerByEmailAndPassword(
+                "john@gmail.com",
+                "Password123!");
 
             string expected_results =
-                "ID: 1, Name: John Smith, Email: john@example.com";
+                "Organizer found: ID: 1, Name: John Smith, Email: john@gmail.com";
 
             Assert.Equal(expected_results, results);
         }
 
+        // Test rejecting an invalid email when adding an organizer
+        [Fact]
+        public void test_OrganizerAdd_InvalidEmail()
+        {
+            OrganizerController controller = new OrganizerController();
 
+            string results = controller.AddOrganizer(
+                "David Brown",
+                "david@yahoo.com",
+                "Password123!");
+
+            string expected_results =
+                "Invalid email. Email must end with @gmail.com.";
+
+            Assert.Equal(expected_results, results);
+        }
+
+        // Test rejecting an invalid password when adding an organizer
+        [Fact]
+        public void test_OrganizerAdd_InvalidPassword()
+        {
+            OrganizerController controller = new OrganizerController();
+
+            string results = controller.AddOrganizer(
+                "David Brown",
+                "david@gmail.com",
+                "password");
+
+            string expected_results =
+                "Invalid password. It must contain at least 8 characters, an uppercase letter, a lowercase letter, a number, and a special character.";
+
+            Assert.Equal(expected_results, results);
+        }
+
+        // Test getting an organizer with incorrect credentials
+        [Fact]
+        public void test_OrganizerGetByIncorrectCredentials()
+        {
+            OrganizerController controller = new OrganizerController();
+
+            string results = controller.GetOrganizerByEmailAndPassword(
+                "john@gmail.com",
+                "WrongPassword123!");
+
+            string expected_results = "Invalid email or password.";
+
+            Assert.Equal(expected_results, results);
+        }
+
+        // Test deleting an organizer
         [Fact]
         public void test_OrganizerDelete()
         {
-            // Instance with object
-            OrganizerController delete_organizer = new OrganizerController();
+            OrganizerController controller = new OrganizerController();
 
-            // Delete request method
-            string results = delete_organizer.DeleteOrganizer(1);
+            string results = controller.DeleteOrganizer(1);
 
             string expected_results = "Organizer deleted successfully.";
 
             Assert.Equal(expected_results, results);
         }
 
-
+        // Test updating an organizer
         [Fact]
         public void test_OrganizerUpdate()
         {
-            // Instance with object
-            OrganizerController update_organizer = new OrganizerController();
+            OrganizerController controller = new OrganizerController();
 
-            // Update request method
-            string results = update_organizer.UpdateOrganizer(
+            string results = controller.UpdateOrganizer(
                 1,
                 "Updated Organizer",
-                "updated@example.com"
-            );
+                "updated@gmail.com",
+                "UpdatedPass123!");
 
             string expected_results = "Organizer updated successfully.";
 
@@ -280,77 +339,122 @@ namespace poepart2
         // NEW TEST
         // Participant controller test cases
 
+        // Test getting a participant by email
+        [Fact]
+        public void test_ParticipantGetByEmail()
+        {
+            ParticipantController controller = new ParticipantController();
+
+            string results = controller.GetParticipant("john@gmail.com");
+
+            string expected_results =
+                "Participant found: John Smith, Email: john@gmail.com";
+
+            Assert.Equal(expected_results, results);
+        }
+
+        // Test adding a participant with valid email and password
         [Fact]
         public void test_ParticipantAdd()
         {
-            // Instance with object
-            ParticipantController add_participant = new ParticipantController();
+            ParticipantController controller = new ParticipantController();
 
-            // Add request method
-            string results = add_participant.AddParticipant(
-                "John",
-                "Smith"
-            );
+            string results = controller.AddParticipant(
+                "David",
+                "Brown",
+                "david@gmail.com",
+                "Password123!");
 
-            string expected_results = "Participant added successfully!";
+            string expected_results =
+                "Participant added successfully!";
 
             Assert.Equal(expected_results, results);
         }
 
-
+        // Test rejecting an invalid email
         [Fact]
-        public void test_ParticipantGet()
+        public void test_ParticipantAdd_InvalidEmail()
         {
-            // Instance with object
-            ParticipantController get_participant = new ParticipantController();
+            ParticipantController controller = new ParticipantController();
 
-            // Get request method
-            string results = get_participant.GetParticipant(
-                "John",
-                "Smith"
-            );
+            string results = controller.AddParticipant(
+                "David",
+                "Brown",
+                "david@yahoo.com",
+                "Password123!");
 
-            string expected_results = "Participant found: John Smith";
+            string expected_results =
+                "Invalid email. Email must end with @gmail.com.";
 
             Assert.Equal(expected_results, results);
         }
 
+        // Test rejecting an invalid password
+        [Fact]
+        public void test_ParticipantAdd_InvalidPassword()
+        {
+            ParticipantController controller = new ParticipantController();
 
+            string results = controller.AddParticipant(
+                "David",
+                "Brown",
+                "david@gmail.com",
+                "password");
+
+            string expected_results =
+                "Invalid password. It must contain at least 8 characters, an uppercase letter, a lowercase letter, a number, and a special character.";
+
+            Assert.Equal(expected_results, results);
+        }
+
+        // Test getting a participant that does not exist
+        [Fact]
+        public void test_ParticipantGet_NotFound()
+        {
+            ParticipantController controller = new ParticipantController();
+
+            string results =
+                controller.GetParticipant("nobody123@gmail.com");
+
+            string expected_results = "Participant not found.";
+
+            Assert.Equal(expected_results, results);
+        }
+
+        // Test updating a participant
         [Fact]
         public void test_ParticipantUpdate()
         {
-            // Instance with object
-            ParticipantController update_participant = new ParticipantController();
+            ParticipantController controller = new ParticipantController();
 
-            // Create updated participant object
-            ParticipantModel updatedParticipant = new ParticipantModel
+            var updatedParticipant = new poepart2.Model.ParticipantModel
             {
-                Participantname = "David",
-                Participantsurname = "Brown"
+                Participantname = "Updated",
+                Participantsurname = "Participant",
+                participantEmail = "updated@gmail.com",
+                participantPassword = "UpdatedPass123!"
             };
 
-            // Update request method
-            string results = update_participant.UpdateParticipant(
+            string results = controller.UpdateParticipant(
                 1,
-                updatedParticipant
-            );
+                updatedParticipant);
 
-            string expected_results = "Participant updated successfully!";
+            string expected_results =
+                "Participant updated successfully!";
 
             Assert.Equal(expected_results, results);
         }
 
-
+        // Test deleting a participant
         [Fact]
         public void test_ParticipantDelete()
         {
-            // Instance with object
-            ParticipantController delete_participant = new ParticipantController();
+            ParticipantController controller = new ParticipantController();
 
-            // Delete request method
-            string results = delete_participant.DeleteParticipant(1);
+            string results = controller.DeleteParticipant(1);
 
-            string expected_results = "Participant deleted successfully!";
+            string expected_results =
+                "Participant deleted successfully!";
 
             Assert.Equal(expected_results, results);
         }

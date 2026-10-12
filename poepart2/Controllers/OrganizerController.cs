@@ -1,4 +1,7 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿
+using System;
+using System.Linq;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 
@@ -8,11 +11,35 @@ namespace testingPOE.Controllers
     [ApiController]
     public class OrganizerController : ControllerBase
     {
+        private readonly string connectionString =
+            @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
-      
+        // Validate email
+        private bool IsValidEmail(string email)
+        {
+            return !string.IsNullOrWhiteSpace(email) &&
+                   email.EndsWith(
+                       "@gmail.com",
+                       StringComparison.OrdinalIgnoreCase);
+        }
 
+        // Validate password
+        private bool IsValidPassword(string password)
+        {
+            if (string.IsNullOrWhiteSpace(password))
+            {
+                return false;
+            }
+
+            return password.Length >= 8 &&
+                   password.Any(char.IsUpper) &&
+                   password.Any(char.IsLower) &&
+                   password.Any(char.IsDigit) &&
+                   password.Any(c => !char.IsLetterOrDigit(c));
+        }
 
         // GET: api/Organizer
+        // Get all organizers
         [HttpGet]
         public string getOrganizer()
         {
@@ -20,17 +47,17 @@ namespace testingPOE.Controllers
 
             try
             {
-                string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
 
-                SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
                 string query = "SELECT * FROM Organizer";
 
-                SqlCommand command = new SqlCommand(query, connection);
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
 
-                SqlDataReader reader = command.ExecuteReader();
+                using SqlDataReader reader = command.ExecuteReader();
 
                 while (reader.Read())
                 {
@@ -38,10 +65,9 @@ namespace testingPOE.Controllers
                     string organizerName = reader.GetString(1);
                     string organizerEmail = reader.GetString(2);
 
-                    message += $"ID: {id}, Name: {organizerName}, Email: {organizerEmail}\n";
+                    message +=
+                        $"ID: {id}, Name: {organizerName}, Email: {organizerEmail}\n";
                 }
-
-                connection.Close();
             }
             catch (Exception error)
             {
@@ -50,34 +76,56 @@ namespace testingPOE.Controllers
 
             return message;
         }
-
 
         // POST: api/Organizer
+        // Add organizer
         [HttpPost]
-        public string AddOrganizer(string organizerName, string organizerEmail)
+        public string AddOrganizer(
+            string organizerName,
+            string organizerEmail,
+            string password)
         {
+            if (!IsValidEmail(organizerEmail))
+            {
+                return "Invalid email. Email must end with @gmail.com.";
+            }
+
+            if (!IsValidPassword(password))
+            {
+                return "Invalid password. It must contain at least 8 characters, an uppercase letter, a lowercase letter, a number, and a special character.";
+            }
+
             string message = "";
 
             try
             {
-                string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
 
-                SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query = "INSERT INTO Organizer (Organizername, OrganizerEmail) VALUES (@organizerName, @organizerEmail)";
+                string query =
+                    "INSERT INTO Organizer " +
+                    "(Organizername, OrganizerEmail, Password) " +
+                    "VALUES (@organizerName, @organizerEmail, @password)";
 
-                SqlCommand command = new SqlCommand(query, connection);
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
 
-                command.Parameters.AddWithValue("@organizerName", organizerName);
-                command.Parameters.AddWithValue("@organizerEmail", organizerEmail);
+                command.Parameters.AddWithValue(
+                    "@organizerName", organizerName);
 
-                command.ExecuteNonQuery();
+                command.Parameters.AddWithValue(
+                    "@organizerEmail", organizerEmail);
 
-                connection.Close();
+                // Demonstration only: use a password hash in real applications.
+                command.Parameters.AddWithValue("@password", password);
 
-                message = "Organizer added successfully.";
+                int rowsAffected = command.ExecuteNonQuery();
+
+                message = rowsAffected > 0
+                    ? "Organizer added successfully."
+                    : "Organizer could not be added.";
             }
             catch (Exception error)
             {
@@ -87,28 +135,44 @@ namespace testingPOE.Controllers
             return message;
         }
 
-
-        // GET: api/Organizer/{id}
-        [HttpGet("{id}")]
-        public string GetOrganizerById(int id)
+        // GET: api/Organizer/login?email=...&password=...
+        // Find organizer by email and password
+        [HttpGet("login")]
+        public string GetOrganizerByEmailAndPassword(
+            [FromQuery] string email,
+            [FromQuery] string password)
         {
+            if (!IsValidEmail(email))
+            {
+                return "Invalid email. Email must end with @gmail.com.";
+            }
+
+            if (!IsValidPassword(password))
+            {
+                return "Invalid password format.";
+            }
+
             string message = "";
 
             try
             {
-                string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
 
-                SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query = "SELECT * FROM Organizer WHERE id = @id";
+                string query =
+                    "SELECT id, Organizername, OrganizerEmail " +
+                    "FROM Organizer " +
+                    "WHERE OrganizerEmail = @email AND Password = @password";
 
-                SqlCommand command = new SqlCommand(query, connection);
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
 
-                command.Parameters.AddWithValue("@id", id);
+                command.Parameters.AddWithValue("@email", email);
+                command.Parameters.AddWithValue("@password", password);
 
-                SqlDataReader reader = command.ExecuteReader();
+                using SqlDataReader reader = command.ExecuteReader();
 
                 if (reader.Read())
                 {
@@ -116,14 +180,13 @@ namespace testingPOE.Controllers
                     string organizerName = reader.GetString(1);
                     string organizerEmail = reader.GetString(2);
 
-                    message = $"ID: {organizerId}, Name: {organizerName}, Email: {organizerEmail}";
+                    message =
+                        $"Organizer found: ID: {organizerId}, Name: {organizerName}, Email: {organizerEmail}";
                 }
                 else
                 {
-                    message = "Organizer not found.";
+                    message = "Invalid email or password.";
                 }
-
-                connection.Close();
             }
             catch (Exception error)
             {
@@ -133,8 +196,8 @@ namespace testingPOE.Controllers
             return message;
         }
 
-
         // DELETE: api/Organizer/{id}
+        // Delete organizer
         [HttpDelete("{id}")]
         public string DeleteOrganizer(int id)
         {
@@ -142,30 +205,23 @@ namespace testingPOE.Controllers
 
             try
             {
-                string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
 
-                SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
                 string query = "DELETE FROM Organizer WHERE id = @id";
 
-                SqlCommand command = new SqlCommand(query, connection);
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
 
                 command.Parameters.AddWithValue("@id", id);
 
                 int rowsAffected = command.ExecuteNonQuery();
 
-                if (rowsAffected > 0)
-                {
-                    message = "Organizer deleted successfully.";
-                }
-                else
-                {
-                    message = "Organizer not found.";
-                }
-
-                connection.Close();
+                message = rowsAffected > 0
+                    ? "Organizer deleted successfully."
+                    : "Organizer not found.";
             }
             catch (Exception error)
             {
@@ -175,41 +231,58 @@ namespace testingPOE.Controllers
             return message;
         }
 
-
-        // UPDATE: api/Organizer/{id}
+        // PUT: api/Organizer/{id}
+        // Update organizer
         [HttpPut("{id}")]
-        public string UpdateOrganizer(int id, string organizerName, string organizerEmail)
+        public string UpdateOrganizer(
+            int id,
+            string organizerName,
+            string organizerEmail,
+            string password)
         {
+            if (!IsValidEmail(organizerEmail))
+            {
+                return "Invalid email. Email must end with @gmail.com.";
+            }
+
+            if (!IsValidPassword(password))
+            {
+                return "Invalid password. It must contain at least 8 characters, an uppercase letter, a lowercase letter, a number, and a special character.";
+            }
+
             string message = "";
 
             try
             {
-                string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
 
-                SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query = "UPDATE Organizer SET Organizername = @organizerName, OrganizerEmail = @organizerEmail WHERE id = @id";
+                string query =
+                    "UPDATE Organizer SET " +
+                    "Organizername = @organizerName, " +
+                    "OrganizerEmail = @organizerEmail, " +
+                    "Password = @password " +
+                    "WHERE id = @id";
 
-                SqlCommand command = new SqlCommand(query, connection);
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
 
-                command.Parameters.AddWithValue("@organizerName", organizerName);
-                command.Parameters.AddWithValue("@organizerEmail", organizerEmail);
+                command.Parameters.AddWithValue(
+                    "@organizerName", organizerName);
+
+                command.Parameters.AddWithValue(
+                    "@organizerEmail", organizerEmail);
+
+                command.Parameters.AddWithValue("@password", password);
                 command.Parameters.AddWithValue("@id", id);
 
                 int rowsAffected = command.ExecuteNonQuery();
 
-                if (rowsAffected > 0)
-                {
-                    message = "Organizer updated successfully.";
-                }
-                else
-                {
-                    message = "Organizer not found.";
-                }
-
-                connection.Close();
+                message = rowsAffected > 0
+                    ? "Organizer updated successfully."
+                    : "Organizer not found.";
             }
             catch (Exception error)
             {
@@ -218,6 +291,6 @@ namespace testingPOE.Controllers
 
             return message;
         }
-
     }
 }
+

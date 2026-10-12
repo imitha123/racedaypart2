@@ -1,6 +1,10 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿
+using System;
+using System.Linq;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
+using poepart2.Model;
 
 namespace poepart2.Controllers
 {
@@ -8,157 +12,211 @@ namespace poepart2.Controllers
     [ApiController]
     public class ParticipantController : ControllerBase
     {
+        private readonly string connectionString =
+            @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
-        // Add Participant
+        // Validate email address
+        private bool IsValidEmail(string email)
+        {
+            return !string.IsNullOrWhiteSpace(email) &&
+                   email.EndsWith(
+                       "@gmail.com",
+                       StringComparison.OrdinalIgnoreCase);
+        }
+
+        // Validate password
+        private bool IsValidPassword(string password)
+        {
+            if (string.IsNullOrWhiteSpace(password))
+            {
+                return false;
+            }
+
+            return password.Length >= 8 &&
+                   password.Any(char.IsUpper) &&
+                   password.Any(char.IsLower) &&
+                   password.Any(char.IsDigit) &&
+                   password.Any(c => !char.IsLetterOrDigit(c));
+        }
+
+        // Add participant
         [HttpPost]
         public string AddParticipant(
             string participantName,
-            string participantSurname
-          )
+            string participantSurname,
+            string email,
+            string password)
         {
+            if (!IsValidEmail(email))
+            {
+                return "Invalid email. Email must end with @gmail.com.";
+            }
+
+            if (!IsValidPassword(password))
+            {
+                return "Invalid password. It must contain at least 8 characters, an uppercase letter, a lowercase letter, a number, and a special character.";
+            }
+
             string message = "";
 
             try
             {
-                string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
-
-                SqlConnection connection = new SqlConnection(connectionString);
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
 
                 connection.Open();
 
-                string query = "INSERT INTO Participant " +
-                               "(Participantname, Participantsurname) " +
-                               "VALUES (@participantName, @participantSurname)";
+                string query =
+                    "INSERT INTO Participant " +
+                    "(Participantname, Participantsurname, Email, Password) " +
+                    "VALUES (@name, @surname, @email, @password)";
 
-                SqlCommand command = new SqlCommand(query, connection);
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
 
-                command.Parameters.AddWithValue("@participantName", participantName);
-                command.Parameters.AddWithValue("@participantSurname", participantSurname);
-                
+                command.Parameters.AddWithValue("@name", participantName);
+                command.Parameters.AddWithValue("@surname", participantSurname);
+                command.Parameters.AddWithValue("@email", email);
 
-                command.ExecuteNonQuery();
+                // For a real application, store a password hash instead.
+                command.Parameters.AddWithValue("@password", password);
 
-                message = "Participant added successfully!";
+                int rowsAffected = command.ExecuteNonQuery();
 
-                connection.Close();
+                message = rowsAffected > 0
+                    ? "Participant added successfully!"
+                    : "Participant could not be added.";
             }
-            catch (Exception E)
+            catch (Exception error)
             {
-                message = "Error: " + E.Message;
+                message = error.Message;
             }
 
             return message;
         }
 
-
-        // Get Participant
-        [HttpGet("{id}")]
-        public string GetParticipant(string participantName, string participantSurname)
+        // Get participant by email
+        [HttpGet("{participantEmail}")]
+        public string GetParticipant(string email)
         {
+            if (!IsValidEmail(email))
+            {
+                return "Invalid email. Email must end with @gmail.com.";
+            }
+
             string message = "";
 
             try
             {
-                string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
-
-                SqlConnection connection = new SqlConnection(connectionString);
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
 
                 connection.Open();
 
-                string query = "SELECT * FROM Participant " +
-                               "WHERE Participantname = @participantName " +
-                               "AND Participantsurname = @participantSurname";
+                string query =
+                    "SELECT Participantname, Participantsurname, Email " +
+                    "FROM Participant WHERE Email = @email";
 
-                SqlCommand command = new SqlCommand(query, connection);
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
 
-                command.Parameters.AddWithValue("@participantName", participantName);
-                command.Parameters.AddWithValue("@participantSurname", participantSurname);
+                command.Parameters.AddWithValue("@email", email);
 
-                SqlDataReader reader = command.ExecuteReader();
+                using SqlDataReader reader = command.ExecuteReader();
 
-                if (reader.HasRows)
+                if (reader.Read())
                 {
-                    while (reader.Read())
-                    {
-                        message = "Participant found: " +
-                                  reader["Participantname"] + " " +
-                                  reader["Participantsurname"];
-                    }
+                    string name = reader.GetString(0);
+                    string surname = reader.GetString(1);
+                    string participantEmail = reader.GetString(2);
+
+                    message =
+                        $"Participant found: {name} {surname}, Email: {participantEmail}";
                 }
                 else
                 {
                     message = "Participant not found.";
                 }
-
-                reader.Close();
-                connection.Close();
             }
-            catch (Exception E)
+            catch (Exception error)
             {
-                message = "Error: " + E.Message;
+                message = error.Message;
             }
 
             return message;
         }
 
-
-        // Update Participant
+        // Update participant
         [HttpPut("{id}")]
-        public string UpdateParticipant(int id, Model.ParticipantModel updatedParticipant)
+        public string UpdateParticipant(
+            int id,
+            [FromBody] ParticipantModel updatedParticipant)
         {
+            if (updatedParticipant == null)
+            {
+                return "Invalid participant details.";
+            }
+
+            if (!IsValidEmail(updatedParticipant.participantEmail))
+            {
+                return "Invalid email. Email must end with @gmail.com.";
+            }
+
+            if (!IsValidPassword(updatedParticipant.participantPassword))
+            {
+                return "Invalid password. It must contain at least 8 characters, an uppercase letter, a lowercase letter, a number, and a special character.";
+            }
+
             string message = "";
 
             try
             {
-                string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
-
-                SqlConnection connection = new SqlConnection(connectionString);
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
 
                 connection.Open();
 
-                string query = "UPDATE Participant SET " +
-                               "Participantname = @participantName, " +
-                               "Participantsurname = @participantSurname " +
-                               "WHERE id = @id";
+                string query =
+                    "UPDATE Participant SET " +
+                    "Participantname = @name, " +
+                    "Participantsurname = @surname, " +
+                    "Email = @email, " +
+                    "Password = @password " +
+                    "WHERE id = @id";
 
-                SqlCommand command = new SqlCommand(query, connection);
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
 
                 command.Parameters.AddWithValue(
-                    "@participantName",
-                    updatedParticipant.Participantname);
+                    "@name", updatedParticipant.Participantname);
 
                 command.Parameters.AddWithValue(
-                    "@participantSurname",
-                    updatedParticipant.Participantsurname);
+                    "@surname", updatedParticipant.Participantsurname);
+
+                command.Parameters.AddWithValue(
+                    "@email", updatedParticipant.participantEmail);
+
+                // For a real application, store a password hash instead.
+                command.Parameters.AddWithValue(
+                    "@password", updatedParticipant.participantPassword);
 
                 command.Parameters.AddWithValue("@id", id);
 
                 int rowsAffected = command.ExecuteNonQuery();
 
-                if (rowsAffected > 0)
-                {
-                    message = "Participant updated successfully!";
-                }
-                else
-                {
-                    message = "Participant not found.";
-                }
-
-                connection.Close();
+                message = rowsAffected > 0
+                    ? "Participant updated successfully!"
+                    : "Participant not found.";
             }
-            catch (Exception E)
+            catch (Exception error)
             {
-                message = "Error: " + E.Message;
+                message = error.Message;
             }
 
             return message;
         }
 
-
-        // Delete Participant
+        // Delete participant
         [HttpDelete("{id}")]
         public string DeleteParticipant(int id)
         {
@@ -166,41 +224,32 @@ namespace poepart2.Controllers
 
             try
             {
-                string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
-
-                SqlConnection connection = new SqlConnection(connectionString);
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
 
                 connection.Open();
 
-                string query = "DELETE FROM Participant WHERE id = @id";
+                string query =
+                    "DELETE FROM Participant WHERE id = @id";
 
-                SqlCommand command = new SqlCommand(query, connection);
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
 
                 command.Parameters.AddWithValue("@id", id);
 
                 int rowsAffected = command.ExecuteNonQuery();
 
-                if (rowsAffected > 0)
-                {
-                    message = "Participant deleted successfully!";
-                }
-                else
-                {
-                    message = "Participant not found.";
-                }
-
-                connection.Close();
+                message = rowsAffected > 0
+                    ? "Participant deleted successfully!"
+                    : "Participant not found.";
             }
-            catch (Exception E)
+            catch (Exception error)
             {
-                message = "Error: " + E.Message;
+                message = error.Message;
             }
 
             return message;
         }
-
-        
-
     }
 }
+
