@@ -1,5 +1,4 @@
-﻿
-using System;
+﻿using System;
 using System.Linq;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -12,10 +11,11 @@ namespace testingPOE.Controllers
     public class OrganizerController : ControllerBase
     {
         private readonly string connectionString =
-            @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+        @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
-        // Validate email
-        private bool IsValidEmail(string email)
+
+    // Validate email
+    private bool IsValidEmail(string email)
         {
             return !string.IsNullOrWhiteSpace(email) &&
                    email.EndsWith(
@@ -137,7 +137,7 @@ namespace testingPOE.Controllers
 
         // GET: api/Organizer/login?email=...&password=...
         // Find organizer by email and password
-        [HttpGet]
+        [HttpGet("login")]
         public string GetOrganizerByEmailAndPassword(
             [FromQuery] string email,
             [FromQuery] string password)
@@ -196,7 +196,7 @@ namespace testingPOE.Controllers
             return message;
         }
 
-        // DELETE: api/Organizer/{id}
+        // DELETE: api/Organizer?id=1
         // Delete organizer
         [HttpDelete]
         public string DeleteOrganizer(int id)
@@ -231,7 +231,7 @@ namespace testingPOE.Controllers
             return message;
         }
 
-        // PUT: api/Organizer/{id}
+        // PUT: api/Organizer?id=1&organizerName=...&organizerEmail=...&password=...
         // Update organizer
         [HttpPut]
         public string UpdateOrganizer(
@@ -292,5 +292,6 @@ namespace testingPOE.Controllers
             return message;
         }
     }
-}
 
+
+}

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using System;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 
@@ -8,23 +8,30 @@ namespace poepart2.Controllers
     [ApiController]
     public class CategoryController : ControllerBase
     {
-        // Get all Categories
-        [HttpGet]
+        private readonly string connectionString =
+        @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+
+
+    // GET: api/Category
+    // Get all categories
+    [HttpGet]
         public string getAllCategories()
         {
             string message = "";
 
             try
             {
-                string connectionString = @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
 
-                SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
                 string query = "SELECT * FROM Category";
 
-                SqlCommand command = new SqlCommand(query, connection);
-                SqlDataReader reader = command.ExecuteReader();
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
+
+                using SqlDataReader reader = command.ExecuteReader();
 
                 while (reader.Read())
                 {
@@ -32,7 +39,8 @@ namespace poepart2.Controllers
                     string name = reader.GetString(1);
                     string description = reader.GetString(2);
 
-                    message += $"ID: {id}, Name: {name}, Description: {description}\n";
+                    message +=
+                        $"ID: {id}, Name: {name}, Description: {description}\n";
                 }
             }
             catch (Exception error)
@@ -43,8 +51,8 @@ namespace poepart2.Controllers
             return message;
         }
 
-
-        // Get category by id
+        // GET: api/Category/1
+        // Get category by ID
         [HttpGet("{id}")]
         public string getCategory(int id)
         {
@@ -52,17 +60,20 @@ namespace poepart2.Controllers
 
             try
             {
-                string connectionString = @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
 
-                SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query = "SELECT * FROM Category WHERE categoryId = @id";
+                string query =
+                    "SELECT * FROM Category WHERE categoryId = @id";
 
-                SqlCommand command = new SqlCommand(query, connection);
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
+
                 command.Parameters.AddWithValue("@id", id);
 
-                SqlDataReader reader = command.ExecuteReader();
+                using SqlDataReader reader = command.ExecuteReader();
 
                 if (reader.Read())
                 {
@@ -70,7 +81,8 @@ namespace poepart2.Controllers
                     string categoryName = reader.GetString(1);
                     string categoryDescription = reader.GetString(2);
 
-                    message = $"ID: {categoryId}, Name: {categoryName}, Description: {categoryDescription}";
+                    message =
+                        $"ID: {categoryId}, Name: {categoryName}, Description: {categoryDescription}";
                 }
                 else
                 {
@@ -85,7 +97,7 @@ namespace poepart2.Controllers
             return message;
         }
 
-
+        // POST: api/Category
         // Add category
         [HttpPost]
         public string addCategory(string name, string description)
@@ -94,28 +106,26 @@ namespace poepart2.Controllers
 
             try
             {
-                string connectionString = @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
 
-                SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query = "INSERT INTO Category (categoryName, categoryDescription) VALUES (@name, @description)";
+                string query =
+                    "INSERT INTO Category (categoryName, categoryDescription) " +
+                    "VALUES (@name, @description)";
 
-                SqlCommand command = new SqlCommand(query, connection);
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
 
                 command.Parameters.AddWithValue("@name", name);
                 command.Parameters.AddWithValue("@description", description);
 
                 int rowsAffected = command.ExecuteNonQuery();
 
-                if (rowsAffected > 0)
-                {
-                    message = "Category added successfully.";
-                }
-                else
-                {
-                    message = "Failed to add category.";
-                }
+                message = rowsAffected > 0
+                    ? "Category added successfully."
+                    : "Failed to add category.";
             }
             catch (Exception error)
             {
@@ -125,7 +135,7 @@ namespace poepart2.Controllers
             return message;
         }
 
-
+        // DELETE: api/Category/1
         // Delete category
         [HttpDelete("{id}")]
         public string deleteCategory(int id)
@@ -134,27 +144,24 @@ namespace poepart2.Controllers
 
             try
             {
-                string connectionString = @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
 
-                SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query = "DELETE FROM Category WHERE categoryId = @id";
+                string query =
+                    "DELETE FROM Category WHERE categoryId = @id";
 
-                SqlCommand command = new SqlCommand(query, connection);
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
 
                 command.Parameters.AddWithValue("@id", id);
 
                 int rowsAffected = command.ExecuteNonQuery();
 
-                if (rowsAffected > 0)
-                {
-                    message = "Category deleted successfully.";
-                }
-                else
-                {
-                    message = "Failed to delete category.";
-                }
+                message = rowsAffected > 0
+                    ? "Category deleted successfully."
+                    : "Category not found.";
             }
             catch (Exception error)
             {
@@ -164,25 +171,31 @@ namespace poepart2.Controllers
             return message;
         }
 
+        // PUT: api/Category/1
         // Update category
         [HttpPut("{id}")]
-        public string updateCategory(int id, string name, string description)
+        public string updateCategory(
+            int id,
+            string name,
+            string description)
         {
             string message = "";
 
             try
             {
-                string connectionString =
-                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
 
-                SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query = "UPDATE Category " +
-                               "SET categoryName = @name, categoryDescription = @description " +
-                               "WHERE categoryID = @id";
+                string query =
+                    "UPDATE Category " +
+                    "SET categoryName = @name, " +
+                    "categoryDescription = @description " +
+                    "WHERE categoryID = @id";
 
-                SqlCommand command = new SqlCommand(query, connection);
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
 
                 command.Parameters.AddWithValue("@name", name);
                 command.Parameters.AddWithValue("@description", description);
@@ -190,16 +203,9 @@ namespace poepart2.Controllers
 
                 int rowsAffected = command.ExecuteNonQuery();
 
-                if (rowsAffected > 0)
-                {
-                    message = "Category updated successfully.";
-                }
-                else
-                {
-                    message = "Category not found.";
-                }
-
-                connection.Close();
+                message = rowsAffected > 0
+                    ? "Category updated successfully."
+                    : "Category not found.";
             }
             catch (Exception error)
             {
@@ -209,5 +215,6 @@ namespace poepart2.Controllers
             return message;
         }
     }
+
 
 }

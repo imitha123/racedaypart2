@@ -1,7 +1,7 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using System;
 using Microsoft.AspNetCore.Mvc;
-using poepart2.Model;
 using Microsoft.Data.SqlClient;
+using poepart2.Model;
 
 namespace poepart2.Controllers
 {
@@ -9,38 +9,41 @@ namespace poepart2.Controllers
     [ApiController]
     public class EventController : ControllerBase
     {
-        
-        // Get all events
-        [HttpGet]
+        private readonly string connectionString =
+        @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+
+
+    // GET: api/Event
+    // Get all events
+    [HttpGet]
         public string getAllEvents()
         {
             string message = "";
 
             try
             {
-                string connectionString =
-                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
 
-                SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
                 string query = "SELECT * FROM Event";
 
-                SqlCommand command = new SqlCommand(query, connection);
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
 
-                SqlDataReader reader = command.ExecuteReader();
+                using SqlDataReader reader = command.ExecuteReader();
 
                 while (reader.Read())
                 {
                     int id = reader.GetInt32(0);
                     string name = reader.GetString(1);
                     string location = reader.GetString(2);
-                    string date = reader.GetString(3);
+                    string date = reader.GetValue(3).ToString();
 
-                    message += $"ID: {id}, Name: {name}, Location: {location}, Date: {date}\n";
+                    message +=
+                        $"ID: {id}, Name: {name}, Location: {location}, Date: {date}\n";
                 }
-
-                connection.Close();
             }
             catch (Exception error)
             {
@@ -50,90 +53,44 @@ namespace poepart2.Controllers
             return message;
         }
 
-
-        // Update event by id
-        [HttpPut("{id}")]
-        public string updateEvent(int eventId, Model.EventModel updatedEvent)
-        {
-            string message = "";
-
-            try
-            {
-                string connectionString =
-                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
-
-                SqlConnection connection = new SqlConnection(connectionString);
-                connection.Open();
-
-                string query = "UPDATE Event SET eventName = @name, eventLocation = @location, eventDate = @date WHERE eventId = @id";
-
-                SqlCommand command = new SqlCommand(query, connection);
-
-                command.Parameters.AddWithValue("@id", eventId);
-                command.Parameters.AddWithValue("@name", updatedEvent.EventName);
-                command.Parameters.AddWithValue("@location", updatedEvent.EventLocation);
-                command.Parameters.AddWithValue("@date", updatedEvent.EventDate);
-
-                int rowsAffected = command.ExecuteNonQuery();
-
-                if (rowsAffected > 0)
-                {
-                    message = "Event updated successfully.";
-                }
-                else
-                {
-                    message = "Failed to update event.";
-                }
-
-                connection.Close();
-            }
-            catch (Exception error)
-            {
-                message = error.Message;
-            }
-
-            return message;
-        }
-
-
-        // Get Event By ID
+        // GET: api/Event/1
+        // Get event by ID
         [HttpGet("{id}")]
-        public string getEventById(int eventId)
+        public string getEventById([FromRoute] int id)
         {
             string message = "";
 
             try
             {
-                string connectionString =
-                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
 
-                SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query = "SELECT * FROM Event WHERE eventId = @id";
+                string query =
+                    "SELECT * FROM Event WHERE eventId = @id";
 
-                SqlCommand command = new SqlCommand(query, connection);
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
 
-                command.Parameters.AddWithValue("@id", eventId);
+                command.Parameters.AddWithValue("@id", id);
 
-                SqlDataReader reader = command.ExecuteReader();
+                using SqlDataReader reader = command.ExecuteReader();
 
                 if (reader.Read())
                 {
-                    int id = reader.GetInt32(0);
+                    int eventId = reader.GetInt32(0);
                     string name = reader.GetString(1);
                     string location = reader.GetString(2);
-                    string date = reader.GetString(3);
+                    string date = reader.GetValue(3).ToString();
 
-                    message = $"ID: {id}, Name: {name}, Location: {location}, Date: {date}";
+                    message =
+                        $"ID: {eventId}, Name: {name}, Location: {location}, Date: {date}";
                 }
                 else
                 {
                     message = "Event not found.";
                 }
-
-                reader.Close();
-                connection.Close();
             }
             catch (Exception error)
             {
@@ -143,41 +100,46 @@ namespace poepart2.Controllers
             return message;
         }
 
-
+        // POST: api/Event
         // Add event
         [HttpPost]
-        public string addEvent(Model. EventModel newEvent)
+        public string addEvent([FromBody] EventModel newEvent)
         {
+            if (newEvent == null)
+            {
+                return "Invalid event details.";
+            }
+
             string message = "";
 
             try
             {
-                string connectionString =
-                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
 
-                SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query = "INSERT INTO Event (eventName, eventLocation, eventDate) VALUES (@name, @location, @date)";
+                string query =
+                    "INSERT INTO Event (eventName, eventLocation, eventDate) " +
+                    "VALUES (@name, @location, @date)";
 
-                SqlCommand command = new SqlCommand(query, connection);
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
 
-                command.Parameters.AddWithValue("@name", newEvent.EventName);
-                command.Parameters.AddWithValue("@location", newEvent.EventLocation);
-                command.Parameters.AddWithValue("@date", newEvent.EventDate);
+                command.Parameters.AddWithValue(
+                    "@name", newEvent.EventName);
+
+                command.Parameters.AddWithValue(
+                    "@location", newEvent.EventLocation);
+
+                command.Parameters.AddWithValue(
+                    "@date", newEvent.EventDate);
 
                 int rowsAffected = command.ExecuteNonQuery();
 
-                if (rowsAffected > 0)
-                {
-                    message = "Event added successfully.";
-                }
-                else
-                {
-                    message = "Failed to add event.";
-                }
-
-                connection.Close();
+                message = rowsAffected > 0
+                    ? "Event added successfully."
+                    : "Failed to add event.";
             }
             catch (Exception error)
             {
@@ -187,42 +149,110 @@ namespace poepart2.Controllers
             return message;
         }
 
+        // PUT: api/Event/1
+        // Update event by ID using the ID in the URL
+        [HttpPut("{id}")]
+        public string updateEvent(
+            [FromRoute] int id,
+            [FromBody] EventModel updatedEvent)
+        {
+            if (updatedEvent == null)
+            {
+                return "Invalid event details.";
+            }
 
-        // Update Event
+            string message = "";
+
+            try
+            {
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
+
+                connection.Open();
+
+                string query =
+                    "UPDATE Event SET " +
+                    "eventName = @name, " +
+                    "eventLocation = @location, " +
+                    "eventDate = @date " +
+                    "WHERE eventId = @id";
+
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
+
+                command.Parameters.AddWithValue(
+                    "@id", id);
+
+                command.Parameters.AddWithValue(
+                    "@name", updatedEvent.EventName);
+
+                command.Parameters.AddWithValue(
+                    "@location", updatedEvent.EventLocation);
+
+                command.Parameters.AddWithValue(
+                    "@date", updatedEvent.EventDate);
+
+                int rowsAffected = command.ExecuteNonQuery();
+
+                message = rowsAffected > 0
+                    ? "Event updated successfully."
+                    : "Event not found.";
+            }
+            catch (Exception error)
+            {
+                message = error.Message;
+            }
+
+            return message;
+        }
+
+        // PUT: api/Event
+        // Update event using the ID in the request body
         [HttpPut]
-        public string updateEvent([FromBody] EventModel updatedEvent)
+        public string updateEventByBody(
+            [FromBody] EventModel updatedEvent)
         {
+            if (updatedEvent == null)
+            {
+                return "Invalid event details.";
+            }
+
             string message = "";
 
             try
             {
-                string connectionString =
-                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
 
-                SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query = "UPDATE Event SET eventName = @name, eventLocation = @location, eventDate = @date WHERE eventId = @id";
+                string query =
+                    "UPDATE Event SET " +
+                    "eventName = @name, " +
+                    "eventLocation = @location, " +
+                    "eventDate = @date " +
+                    "WHERE eventId = @id";
 
-                SqlCommand command = new SqlCommand(query, connection);
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
 
-                command.Parameters.AddWithValue("@id", updatedEvent.ÉventId);
-                command.Parameters.AddWithValue("@name", updatedEvent.EventName);
-                command.Parameters.AddWithValue("@location", updatedEvent.EventLocation);
-                command.Parameters.AddWithValue("@date", updatedEvent.EventDate);
+                command.Parameters.AddWithValue(
+                    "@id", updatedEvent.ÉventId);
+
+                command.Parameters.AddWithValue(
+                    "@name", updatedEvent.EventName);
+
+                command.Parameters.AddWithValue(
+                    "@location", updatedEvent.EventLocation);
+
+                command.Parameters.AddWithValue(
+                    "@date", updatedEvent.EventDate);
 
                 int rowsAffected = command.ExecuteNonQuery();
 
-                if (rowsAffected > 0)
-                {
-                    message = "Event updated successfully.";
-                }
-                else
-                {
-                    message = "Failed to update event.";
-                }
-
-                connection.Close();
+                message = rowsAffected > 0
+                    ? "Event updated successfully."
+                    : "Event not found.";
             }
             catch (Exception error)
             {
@@ -232,39 +262,33 @@ namespace poepart2.Controllers
             return message;
         }
 
-
-        // Delete event
-        [HttpDelete]
-        public string deleteEvent(int eventId)
+        // DELETE: api/Event/1
+        // Delete event by ID
+        [HttpDelete("{eventId}")]
+        public string deleteEvent([FromRoute] int eventId)
         {
             string message = "";
 
             try
             {
-                string connectionString =
-                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
 
-                SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query = "DELETE FROM Event WHERE eventId = @id";
+                string query =
+                    "DELETE FROM Event WHERE eventId = @id";
 
-                SqlCommand command = new SqlCommand(query, connection);
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
 
                 command.Parameters.AddWithValue("@id", eventId);
 
                 int rowsAffected = command.ExecuteNonQuery();
 
-                if (rowsAffected > 0)
-                {
-                    message = "Event deleted successfully.";
-                }
-                else
-                {
-                    message = "Failed to delete event.";
-                }
-
-                connection.Close();
+                message = rowsAffected > 0
+                    ? "Event deleted successfully."
+                    : "Event not found.";
             }
             catch (Exception error)
             {
@@ -273,6 +297,7 @@ namespace poepart2.Controllers
 
             return message;
         }
-
     }
+
+
 }

@@ -1,7 +1,5 @@
-﻿
-using System;
+﻿using System;
 using System.Linq;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using poepart2.Model;
@@ -13,10 +11,11 @@ namespace poepart2.Controllers
     public class ParticipantController : ControllerBase
     {
         private readonly string connectionString =
-            @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+        @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
-        // Validate email address
-        private bool IsValidEmail(string email)
+
+    // Validate email address
+    private bool IsValidEmail(string email)
         {
             return !string.IsNullOrWhiteSpace(email) &&
                    email.EndsWith(
@@ -39,13 +38,14 @@ namespace poepart2.Controllers
                    password.Any(c => !char.IsLetterOrDigit(c));
         }
 
+        // POST: api/Participant
         // Add participant
         [HttpPost]
         public string AddParticipant(
-            string participantName,
-            string participantSurname,
-            string email,
-            string password)
+            [FromQuery] string participantName,
+            [FromQuery] string participantSurname,
+            [FromQuery] string email,
+            [FromQuery] string password)
         {
             if (!IsValidEmail(email))
             {
@@ -77,8 +77,6 @@ namespace poepart2.Controllers
                 command.Parameters.AddWithValue("@name", participantName);
                 command.Parameters.AddWithValue("@surname", participantSurname);
                 command.Parameters.AddWithValue("@email", email);
-
-                // For a real application, store a password hash instead.
                 command.Parameters.AddWithValue("@password", password);
 
                 int rowsAffected = command.ExecuteNonQuery();
@@ -95,9 +93,10 @@ namespace poepart2.Controllers
             return message;
         }
 
+        // GET: api/Participant?email=example@gmail.com
         // Get participant by email
         [HttpGet]
-        public string GetParticipant(string email)
+        public string GetParticipant([FromQuery] string email)
         {
             if (!IsValidEmail(email))
             {
@@ -146,10 +145,11 @@ namespace poepart2.Controllers
             return message;
         }
 
+        // PUT: api/Participant/1
         // Update participant
-        [HttpPut]
+        [HttpPut("{id}")]
         public string UpdateParticipant(
-            int id,
+            [FromRoute] int id,
             [FromBody] ParticipantModel updatedParticipant)
         {
             if (updatedParticipant == null)
@@ -196,7 +196,6 @@ namespace poepart2.Controllers
                 command.Parameters.AddWithValue(
                     "@email", updatedParticipant.participantEmail);
 
-                // For a real application, store a password hash instead.
                 command.Parameters.AddWithValue(
                     "@password", updatedParticipant.participantPassword);
 
@@ -216,9 +215,10 @@ namespace poepart2.Controllers
             return message;
         }
 
+        // DELETE: api/Participant/1
         // Delete participant
-        [HttpDelete]
-        public string DeleteParticipant(int id)
+        [HttpDelete("{id}")]
+        public string DeleteParticipant([FromRoute] int id)
         {
             string message = "";
 
@@ -251,5 +251,6 @@ namespace poepart2.Controllers
             return message;
         }
     }
-}
 
+
+}

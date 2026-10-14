@@ -1,7 +1,7 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using System;
 using Microsoft.AspNetCore.Mvc;
-using poepart2.Model;
 using Microsoft.Data.SqlClient;
+using poepart2.Model;
 
 namespace poepart2.Controllers
 {
@@ -9,26 +9,30 @@ namespace poepart2.Controllers
     [ApiController]
     public class ResultController : ControllerBase
     {
+        private readonly string connectionString =
+        @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
-        // Get all results
-        [HttpGet]
+
+    // GET: api/Result
+    // Get all results
+    [HttpGet]
         public string getAllResults()
         {
             string message = "";
 
             try
             {
-                string connectionString =
-                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
 
-                SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
                 string query = "SELECT * FROM Results";
 
-                SqlCommand command = new SqlCommand(query, connection);
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
 
-                SqlDataReader reader = command.ExecuteReader();
+                using SqlDataReader reader = command.ExecuteReader();
 
                 while (reader.Read())
                 {
@@ -36,11 +40,9 @@ namespace poepart2.Controllers
                     string position = reader.GetString(1);
                     int score = reader.GetInt32(2);
 
-                    message += $"ID: {id}, Position: {position}, Score: {score}\n";
+                    message +=
+                        $"ID: {id}, Position: {position}, Score: {score}\n";
                 }
-
-                reader.Close();
-                connection.Close();
             }
             catch (Exception error)
             {
@@ -50,28 +52,29 @@ namespace poepart2.Controllers
             return message;
         }
 
-
-        // Get result by id
-        [HttpGet]
-        public string getResult(int id)
+        // GET: api/Result/1
+        // Get result by ID
+        [HttpGet("{id}")]
+        public string getResult([FromRoute] int id)
         {
             string message = "";
 
             try
             {
-                string connectionString =
-                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
 
-                SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query = "SELECT * FROM Results WHERE Id = @id";
+                string query =
+                    "SELECT * FROM Results WHERE Id = @id";
 
-                SqlCommand command = new SqlCommand(query, connection);
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
 
                 command.Parameters.AddWithValue("@id", id);
 
-                SqlDataReader reader = command.ExecuteReader();
+                using SqlDataReader reader = command.ExecuteReader();
 
                 if (reader.Read())
                 {
@@ -79,15 +82,13 @@ namespace poepart2.Controllers
                     string position = reader.GetString(1);
                     int score = reader.GetInt32(2);
 
-                    message = $"ID: {resultId}, Position: {position}, Score: {score}";
+                    message =
+                        $"ID: {resultId}, Position: {position}, Score: {score}";
                 }
                 else
                 {
                     message = "Result not found.";
                 }
-
-                reader.Close();
-                connection.Close();
             }
             catch (Exception error)
             {
@@ -97,85 +98,48 @@ namespace poepart2.Controllers
             return message;
         }
 
-
-        // Update result
-        [HttpPut]
-        public string updateResult(int id,  Model.ResultsModel updatedResult)
+        // PUT: api/Result/1
+        // Update result by ID
+        [HttpPut("{id}")]
+        public string updateResult(
+            [FromRoute] int id,
+            [FromBody] ResultsModel updatedResult)
         {
+            if (updatedResult == null)
+            {
+                return "Invalid result details.";
+            }
+
             string message = "";
 
             try
             {
-                string connectionString =
-                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
 
-                SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query = "UPDATE Results " +
-                               "SET Position = @position, Score = @score " +
-                               "WHERE Id = @id";
+                string query =
+                    "UPDATE Results " +
+                    "SET Position = @position, Score = @score " +
+                    "WHERE Id = @id";
 
-                SqlCommand command = new SqlCommand(query, connection);
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
 
-                command.Parameters.AddWithValue("@position", updatedResult.Position);
-                command.Parameters.AddWithValue("@score", updatedResult.Score);
-                command.Parameters.AddWithValue("@id", id);
+                command.Parameters.AddWithValue(
+                    "@position", updatedResult.Position);
 
-                int rowsAffected = command.ExecuteNonQuery();
-
-                if (rowsAffected > 0)
-                {
-                    message = "Result updated successfully.";
-                }
-                else
-                {
-                    message = "Result not found.";
-                }
-
-                connection.Close();
-            }
-            catch (Exception error)
-            {
-                message = error.Message;
-            }
-
-            return message;
-        }
-
-
-        // Delete result by id
-        [HttpDelete]
-        public string deleteResult(int id)
-        {
-            string message = "";
-
-            try
-            {
-                string connectionString =
-                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
-
-                SqlConnection connection = new SqlConnection(connectionString);
-                connection.Open();
-
-                string query = "DELETE FROM Results WHERE Id = @id";
-
-                SqlCommand command = new SqlCommand(query, connection);
+                command.Parameters.AddWithValue(
+                    "@score", updatedResult.Score);
 
                 command.Parameters.AddWithValue("@id", id);
 
                 int rowsAffected = command.ExecuteNonQuery();
 
-                if (rowsAffected > 0)
-                {
-                    message = "Result deleted successfully.";
-                }
-                else
-                {
-                    message = "Result not found.";
-                }
-
-                connection.Close();
+                message = rowsAffected > 0
+                    ? "Result updated successfully."
+                    : "Result not found.";
             }
             catch (Exception error)
             {
@@ -185,5 +149,41 @@ namespace poepart2.Controllers
             return message;
         }
 
+        // DELETE: api/Result/1
+        // Delete result by ID
+        [HttpDelete("{id}")]
+        public string deleteResult([FromRoute] int id)
+        {
+            string message = "";
+
+            try
+            {
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
+
+                connection.Open();
+
+                string query =
+                    "DELETE FROM Results WHERE Id = @id";
+
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
+
+                command.Parameters.AddWithValue("@id", id);
+
+                int rowsAffected = command.ExecuteNonQuery();
+
+                message = rowsAffected > 0
+                    ? "Result deleted successfully."
+                    : "Result not found.";
+            }
+            catch (Exception error)
+            {
+                message = error.Message;
+            }
+
+            return message;
+        }
     }
+
 }
