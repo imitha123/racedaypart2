@@ -67,7 +67,7 @@ namespace poepart2.Controllers
                 connection.Open();
 
                 string query =
-                    "SELECT * FROM Results WHERE Id = @id";
+                    "SELECT * FROM Results WHERE resultId = @id";
 
                 using SqlCommand command =
                     new SqlCommand(query, connection);
@@ -121,8 +121,8 @@ namespace poepart2.Controllers
 
                 string query =
                     "UPDATE Results " +
-                    "SET Position = @position, Score = @score " +
-                    "WHERE Id = @id";
+                    "SET Position_ = @position, score = @score " +
+                    "WHERE resultID = @id";
 
                 using SqlCommand command =
                     new SqlCommand(query, connection);
@@ -164,7 +164,7 @@ namespace poepart2.Controllers
                 connection.Open();
 
                 string query =
-                    "DELETE FROM Results WHERE Id = @id";
+                    "DELETE FROM Results WHERE resultID = @id";
 
                 using SqlCommand command =
                     new SqlCommand(query, connection);
