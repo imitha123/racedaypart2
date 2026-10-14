@@ -12,7 +12,7 @@ namespace testingPOE.Controllers
     public class OrganizerController : ControllerBase
     {
         private readonly string connectionString =
-            @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+            @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
         // Validate email
         private bool IsValidEmail(string email)
@@ -137,7 +137,7 @@ namespace testingPOE.Controllers
 
         // GET: api/Organizer/login?email=...&password=...
         // Find organizer by email and password
-        [HttpGet("login")]
+        [HttpGet]
         public string GetOrganizerByEmailAndPassword(
             [FromQuery] string email,
             [FromQuery] string password)
@@ -198,7 +198,7 @@ namespace testingPOE.Controllers
 
         // DELETE: api/Organizer/{id}
         // Delete organizer
-        [HttpDelete("{id}")]
+        [HttpDelete]
         public string DeleteOrganizer(int id)
         {
             string message = "";
@@ -233,7 +233,7 @@ namespace testingPOE.Controllers
 
         // PUT: api/Organizer/{id}
         // Update organizer
-        [HttpPut("{id}")]
+        [HttpPut]
         public string UpdateOrganizer(
             int id,
             string organizerName,

@@ -13,7 +13,7 @@ namespace poepart2.Controllers
     public class ParticipantController : ControllerBase
     {
         private readonly string connectionString =
-            @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+            @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
         // Validate email address
         private bool IsValidEmail(string email)
@@ -68,7 +68,7 @@ namespace poepart2.Controllers
 
                 string query =
                     "INSERT INTO Participant " +
-                    "(Participantname, Participantsurname, Email, Password) " +
+                    "(Participantname, Participantsurname, email, password) " +
                     "VALUES (@name, @surname, @email, @password)";
 
                 using SqlCommand command =
@@ -96,7 +96,7 @@ namespace poepart2.Controllers
         }
 
         // Get participant by email
-        [HttpGet("{participantEmail}")]
+        [HttpGet]
         public string GetParticipant(string email)
         {
             if (!IsValidEmail(email))
@@ -147,7 +147,7 @@ namespace poepart2.Controllers
         }
 
         // Update participant
-        [HttpPut("{id}")]
+        [HttpPut]
         public string UpdateParticipant(
             int id,
             [FromBody] ParticipantModel updatedParticipant)
@@ -217,7 +217,7 @@ namespace poepart2.Controllers
         }
 
         // Delete participant
-        [HttpDelete("{id}")]
+        [HttpDelete]
         public string DeleteParticipant(int id)
         {
             string message = "";

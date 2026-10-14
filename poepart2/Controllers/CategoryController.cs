@@ -16,7 +16,7 @@ namespace poepart2.Controllers
 
             try
             {
-                string connectionString = @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                string connectionString = @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
                 SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
@@ -52,12 +52,12 @@ namespace poepart2.Controllers
 
             try
             {
-                string connectionString = @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                string connectionString = @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
                 SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query = "SELECT * FROM Category WHERE Id = @id";
+                string query = "SELECT * FROM Category WHERE categoryId = @id";
 
                 SqlCommand command = new SqlCommand(query, connection);
                 command.Parameters.AddWithValue("@id", id);
@@ -94,12 +94,12 @@ namespace poepart2.Controllers
 
             try
             {
-                string connectionString = @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                string connectionString = @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
                 SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query = "INSERT INTO Category (Name, Description) VALUES (@name, @description)";
+                string query = "INSERT INTO Category (categoryName, categoryDescription) VALUES (@name, @description)";
 
                 SqlCommand command = new SqlCommand(query, connection);
 
@@ -134,12 +134,12 @@ namespace poepart2.Controllers
 
             try
             {
-                string connectionString = @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                string connectionString = @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
                 SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query = "DELETE FROM Category WHERE Id = @id";
+                string query = "DELETE FROM Category WHERE categoryId = @id";
 
                 SqlCommand command = new SqlCommand(query, connection);
 
@@ -173,14 +173,14 @@ namespace poepart2.Controllers
             try
             {
                 string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
                 SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
                 string query = "UPDATE Category " +
-                               "SET Name = @name, Description = @description " +
-                               "WHERE ID = @id";
+                               "SET categoryName = @name, categoryDescription = @description " +
+                               "WHERE categoryID = @id";
 
                 SqlCommand command = new SqlCommand(query, connection);
 

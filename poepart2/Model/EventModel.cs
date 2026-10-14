@@ -7,8 +7,8 @@
         public string EventLocation { get; set; }
         public string EventDate { get; set; }
 
-        public int OrganizationId { get; set; }
+        public int organizerID { get; set; }
 
-        public int CategoryId { get; set; }
+        public int categoryID { get; set; }
     }
 }

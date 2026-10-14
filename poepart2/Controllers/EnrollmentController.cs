@@ -19,7 +19,7 @@ namespace poepart2.Controllers
             try
             {
                 string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
                 SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
@@ -59,7 +59,7 @@ namespace poepart2.Controllers
             try
             {
                 string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
                 SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
@@ -103,7 +103,7 @@ namespace poepart2.Controllers
             try
             {
                 string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
                 SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
@@ -150,7 +150,7 @@ namespace poepart2.Controllers
             try
             {
                 string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
                 SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
@@ -197,7 +197,7 @@ namespace poepart2.Controllers
             try
             {
                 string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
                 SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();

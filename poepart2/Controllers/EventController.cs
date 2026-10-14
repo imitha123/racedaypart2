@@ -19,7 +19,7 @@ namespace poepart2.Controllers
             try
             {
                 string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
                 SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
@@ -60,12 +60,12 @@ namespace poepart2.Controllers
             try
             {
                 string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
                 SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query = "UPDATE Event SET Name = @name, Location = @location, Date = @date WHERE Id = @id";
+                string query = "UPDATE Event SET eventName = @name, eventLocation = @location, eventDate = @date WHERE eventId = @id";
 
                 SqlCommand command = new SqlCommand(query, connection);
 
@@ -105,12 +105,12 @@ namespace poepart2.Controllers
             try
             {
                 string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
                 SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query = "SELECT * FROM Event WHERE Id = @id";
+                string query = "SELECT * FROM Event WHERE eventId = @id";
 
                 SqlCommand command = new SqlCommand(query, connection);
 
@@ -153,12 +153,12 @@ namespace poepart2.Controllers
             try
             {
                 string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
                 SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query = "INSERT INTO Event (Name, Location, Date) VALUES (@name, @location, @date)";
+                string query = "INSERT INTO Event (eventName, eventLocation, eventDate) VALUES (@name, @location, @date)";
 
                 SqlCommand command = new SqlCommand(query, connection);
 
@@ -197,12 +197,12 @@ namespace poepart2.Controllers
             try
             {
                 string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
                 SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query = "UPDATE Event SET Name = @name, Location = @location, Date = @date WHERE Id = @id";
+                string query = "UPDATE Event SET eventName = @name, eventLocation = @location, eventDate = @date WHERE eventId = @id";
 
                 SqlCommand command = new SqlCommand(query, connection);
 
@@ -242,12 +242,12 @@ namespace poepart2.Controllers
             try
             {
                 string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
                 SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query = "DELETE FROM Event WHERE Id = @id";
+                string query = "DELETE FROM Event WHERE eventId = @id";
 
                 SqlCommand command = new SqlCommand(query, connection);
 

@@ -19,7 +19,7 @@ namespace poepart2.Controllers
             try
             {
                 string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
                 SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
@@ -52,7 +52,7 @@ namespace poepart2.Controllers
 
 
         // Get result by id
-        [HttpGet("{id}")]
+        [HttpGet]
         public string getResult(int id)
         {
             string message = "";
@@ -60,7 +60,7 @@ namespace poepart2.Controllers
             try
             {
                 string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
                 SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
@@ -99,7 +99,7 @@ namespace poepart2.Controllers
 
 
         // Update result
-        [HttpPut("{id}")]
+        [HttpPut]
         public string updateResult(int id,  Model.ResultsModel updatedResult)
         {
             string message = "";
@@ -107,7 +107,7 @@ namespace poepart2.Controllers
             try
             {
                 string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
                 SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
@@ -145,7 +145,7 @@ namespace poepart2.Controllers
 
 
         // Delete result by id
-        [HttpDelete("{id}")]
+        [HttpDelete]
         public string deleteResult(int id)
         {
             string message = "";
@@ -153,7 +153,7 @@ namespace poepart2.Controllers
             try
             {
                 string connectionString =
-                    @"Data Source=(localhost)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+                    @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
                 SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
