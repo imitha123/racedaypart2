@@ -83,7 +83,8 @@ namespace testingPOE.Controllers
         public string AddOrganizer(
             string organizerName,
             string organizerEmail,
-            string password)
+            string password,
+            string surname)
         {
             if (!IsValidEmail(organizerEmail))
             {
@@ -106,8 +107,8 @@ namespace testingPOE.Controllers
 
                 string query =
                     "INSERT INTO Organizer " +
-                    "(Organizername, OrganizerEmail, Password) " +
-                    "VALUES (@organizerName, @organizerEmail, @password)";
+                    "(Organizername, OrganizerEmail, Password, surname) " +
+                    "VALUES (@organizerName, @organizerEmail, @password, @surname)";
 
                 using SqlCommand command =
                     new SqlCommand(query, connection);
@@ -120,6 +121,8 @@ namespace testingPOE.Controllers
 
                 // Demonstration only: use a password hash in real applications.
                 command.Parameters.AddWithValue("@password", password);
+
+                command.Parameters.AddWithValue("@surname", surname);
 
                 int rowsAffected = command.ExecuteNonQuery();
 

@@ -27,7 +27,7 @@ namespace poepart2.Controllers
 
                 connection.Open();
 
-                string query = "SELECT * FROM Event";
+                string query = "SELECT * FROM Event_";
 
                 using SqlCommand command =
                     new SqlCommand(query, connection);
@@ -68,7 +68,7 @@ namespace poepart2.Controllers
                 connection.Open();
 
                 string query =
-                    "SELECT * FROM Event WHERE eventId = @id";
+                    "SELECT * FROM Event_ WHERE eventId = @id";
 
                 using SqlCommand command =
                     new SqlCommand(query, connection);
@@ -120,8 +120,8 @@ namespace poepart2.Controllers
                 connection.Open();
 
                 string query =
-                    "INSERT INTO Event (eventName, eventLocation, eventDate) " +
-                    "VALUES (@name, @location, @date)";
+                    "INSERT INTO Event_ (eventName, eventLocation, eventDate, categoryID, organizerID) " +
+                    "VALUES (@name, @location, @date, @categoryID, @organizerID)";
 
                 using SqlCommand command =
                     new SqlCommand(query, connection);
@@ -134,6 +134,12 @@ namespace poepart2.Controllers
 
                 command.Parameters.AddWithValue(
                     "@date", newEvent.EventDate);
+
+                command.Parameters.AddWithValue(
+                    "@categoryID", newEvent.categoryID);
+
+                command.Parameters.AddWithValue(
+                    "@organizerID", newEvent.organizerID);
 
                 int rowsAffected = command.ExecuteNonQuery();
 
@@ -171,7 +177,7 @@ namespace poepart2.Controllers
                 connection.Open();
 
                 string query =
-                    "UPDATE Event SET " +
+                    "UPDATE Event_ SET " +
                     "eventName = @name, " +
                     "eventLocation = @location, " +
                     "eventDate = @date " +
@@ -206,61 +212,7 @@ namespace poepart2.Controllers
             return message;
         }
 
-        // PUT: api/Event
-        // Update event using the ID in the request body
-        [HttpPut]
-        public string updateEventByBody(
-            [FromBody] EventModel updatedEvent)
-        {
-            if (updatedEvent == null)
-            {
-                return "Invalid event details.";
-            }
-
-            string message = "";
-
-            try
-            {
-                using SqlConnection connection =
-                    new SqlConnection(connectionString);
-
-                connection.Open();
-
-                string query =
-                    "UPDATE Event SET " +
-                    "eventName = @name, " +
-                    "eventLocation = @location, " +
-                    "eventDate = @date " +
-                    "WHERE eventId = @id";
-
-                using SqlCommand command =
-                    new SqlCommand(query, connection);
-
-                command.Parameters.AddWithValue(
-                    "@id", updatedEvent.ÉventId);
-
-                command.Parameters.AddWithValue(
-                    "@name", updatedEvent.EventName);
-
-                command.Parameters.AddWithValue(
-                    "@location", updatedEvent.EventLocation);
-
-                command.Parameters.AddWithValue(
-                    "@date", updatedEvent.EventDate);
-
-                int rowsAffected = command.ExecuteNonQuery();
-
-                message = rowsAffected > 0
-                    ? "Event updated successfully."
-                    : "Event not found.";
-            }
-            catch (Exception error)
-            {
-                message = error.Message;
-            }
-
-            return message;
-        }
+       
 
         // DELETE: api/Event/1
         // Delete event by ID
@@ -277,7 +229,7 @@ namespace poepart2.Controllers
                 connection.Open();
 
                 string query =
-                    "DELETE FROM Event WHERE eventId = @id";
+                    "DELETE FROM Event_ WHERE eventId = @id";
 
                 using SqlCommand command =
                     new SqlCommand(query, connection);
