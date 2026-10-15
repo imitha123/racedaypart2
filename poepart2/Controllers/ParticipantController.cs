@@ -40,13 +40,14 @@ namespace poepart2.Controllers
 
         // POST: api/Participant
         // Add participant
-        [HttpPost]
+        [HttpPost("Register")]
         public string AddParticipant(
             [FromQuery] string participantName,
             [FromQuery] string participantSurname,
             [FromQuery] string email,
             [FromQuery] string password)
         {
+
             if (!IsValidEmail(email))
             {
                 return "Invalid email. Email must end with @gmail.com.";
@@ -95,12 +96,17 @@ namespace poepart2.Controllers
 
         // GET: api/Participant?email=example@gmail.com
         // Get participant by email
-        [HttpGet]
-        public string GetParticipant([FromQuery] string email)
+        [HttpGet("login")]
+        public string GetParticipant( string email, string password)
         {
             if (!IsValidEmail(email))
             {
                 return "Invalid email. Email must end with @gmail.com.";
+            }
+
+            if (!IsValidPassword(password))
+            {
+                return "Invalid password. It must contain at least 8 characters, an uppercase letter, a lowercase letter, a number, and a special character.";
             }
 
             string message = "";
@@ -114,12 +120,13 @@ namespace poepart2.Controllers
 
                 string query =
                     "SELECT Participantname, Participantsurname, Email " +
-                    "FROM Participant WHERE Email = @email";
+                    "FROM Participant WHERE Email = @email AND Password = @password";
 
                 using SqlCommand command =
                     new SqlCommand(query, connection);
 
                 command.Parameters.AddWithValue("@email", email);
+                command.Parameters.AddWithValue("@password", password);
 
                 using SqlDataReader reader = command.ExecuteReader();
 
@@ -182,7 +189,7 @@ namespace poepart2.Controllers
                     "Participantsurname = @surname, " +
                     "Email = @email, " +
                     "Password = @password " +
-                    "WHERE id = @id";
+                    "WHERE participantID = @id";
 
                 using SqlCommand command =
                     new SqlCommand(query, connection);
@@ -230,7 +237,7 @@ namespace poepart2.Controllers
                 connection.Open();
 
                 string query =
-                    "DELETE FROM Participant WHERE id = @id";
+                    "DELETE FROM Participant WHERE participantID = @id";
 
                 using SqlCommand command =
                     new SqlCommand(query, connection);

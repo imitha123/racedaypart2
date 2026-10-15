@@ -13,11 +13,10 @@ namespace Testing_Poe
         {
             ParticipantController controller = new ParticipantController();
 
-            string results = controller.GetParticipant("david@gmail.com");
+            string results = controller.GetParticipant("maneli04@gmail.com", "Imitha123@18");
 
-            Assert.Contains("Participant found:", results);
-            Assert.Contains("David Brown", results);
-            Assert.Contains("david@gmail.com", results);
+            Assert.Equal("Participant found: Imitha               Maneli              , Email: maneli04@gmail.com  ", results);
+           
         }
 
         // Test 2: Add a participant with a valid email and password
@@ -27,9 +26,9 @@ namespace Testing_Poe
             ParticipantController controller = new ParticipantController();
 
             string results = controller.AddParticipant(
-                "TestParticipant",
+                "TestName",
                 "TestSurname",
-                "participant_test_2026@gmail.com",
+                "test_2026@gmail.com",
                 "Password123!");
 
             Assert.Equal("Participant added successfully!", results);
@@ -76,7 +75,7 @@ namespace Testing_Poe
             ParticipantController controller = new ParticipantController();
 
             string results =
-                controller.GetParticipant("nobody123456789@gmail.com");
+                controller.GetParticipant("nobody123456789@gmail.com", "SomePassword123!");
 
             Assert.Equal("Participant not found.", results);
         }
@@ -91,8 +90,8 @@ namespace Testing_Poe
             {
                 Participantname = "Updated",
                 Participantsurname = "Participant",
-                participantEmail = "updated_test_2026@gmail.com",
-                participantPassword = "UpdatedPass123!"
+                participantEmail = "2026@gmail.com",
+                participantPassword = "UpdatePass123!"
             };
 
             string results = controller.UpdateParticipant(

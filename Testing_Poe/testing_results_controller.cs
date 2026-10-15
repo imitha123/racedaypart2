@@ -31,7 +31,7 @@ namespace Testing_Poe
 
             string results = controller.getResult(2004);
 
-            Assert.Equal("2004 4th 85", results);
+            Assert.Equal("Result ID:2004 Score:85 Position:4th", results);
         }
 
         // Test 3: Get a result that does not exist

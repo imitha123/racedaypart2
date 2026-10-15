@@ -69,8 +69,8 @@ namespace poepart2.Controllers
                         {
                             if (reader.Read())
                             {
-                                message = reader.GetValue(0).ToString() + " "
-                                        + reader.GetValue(1).ToString() + " "
+                                message ="Result ID:"+ reader.GetValue(0).ToString() + " Score:"
+                                        + reader.GetValue(1).ToString() + " Position:"
                                         + reader.GetValue(2).ToString();
                             }
                             else
@@ -101,12 +101,13 @@ namespace poepart2.Controllers
                 {
                     connection.Open();
 
-                    string query = "INSERT INTO Results (Position, Score) VALUES (@position, @score)";
+                    string query = "INSERT INTO Results (Position_, Score, participantID) VALUES (@position, @score, @participantID)";
 
                     using (SqlCommand command = new SqlCommand(query, connection))
                     {
                         command.Parameters.AddWithValue("@position", newResult.Position);
                         command.Parameters.AddWithValue("@score", newResult.Score);
+                        command.Parameters.AddWithValue("@participantID", newResult.participantId);
 
                         int rowsAffected = command.ExecuteNonQuery();
 
@@ -136,7 +137,7 @@ namespace poepart2.Controllers
                 {
                     connection.Open();
 
-                    string query = "UPDATE Results SET Position = @position, Score = @score WHERE resultID = @resultID";
+                    string query = "UPDATE Results SET Position_ = @position, Score = @score WHERE resultID = @resultID";
 
                     using (SqlCommand command = new SqlCommand(query, connection))
                     {

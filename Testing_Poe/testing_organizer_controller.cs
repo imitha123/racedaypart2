@@ -41,11 +41,11 @@ namespace Testing_Poe
             OrganizerController controller = new OrganizerController();
 
             string results = controller.GetOrganizerByEmailAndPassword(
-                "updated@gmail.com",
-                "UpdatedPass123!");
+                "imitha@gmail.com",
+                "Imitha123@18");
 
-            Assert.Equal(
-                "Organizer found: ID: 2003, Name: Updated Organizer, Email: updated@gmail.com",
+            Assert.Contains(
+                "Organizer found: ID: 3010, Name: Imitha              , Email: imitha@gmail.com",
                 results);
         }
 
@@ -91,7 +91,7 @@ namespace Testing_Poe
 
             string results = controller.GetOrganizerByEmailAndPassword(
                 "updated@gmail.com",
-                "WrongPassword123!");
+                "WrongPasword3!");
 
             Assert.Equal("Invalid email or password.", results);
         }

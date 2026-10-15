@@ -79,7 +79,7 @@ namespace testingPOE.Controllers
 
         // POST: api/Organizer
         // Add organizer
-        [HttpPost]
+        [HttpPost("Register")]
         public string AddOrganizer(
             string organizerName,
             string organizerEmail,
@@ -142,8 +142,8 @@ namespace testingPOE.Controllers
         // Find organizer by email and password
         [HttpGet("login")]
         public string GetOrganizerByEmailAndPassword(
-            [FromQuery] string email,
-            [FromQuery] string password)
+             string email,
+             string password)
         {
             if (!IsValidEmail(email))
             {
@@ -165,7 +165,7 @@ namespace testingPOE.Controllers
                 connection.Open();
 
                 string query =
-                    "SELECT id, Organizername, OrganizerEmail " +
+                    "SELECT organizerID, Organizername, OrganizerEmail " +
                     "FROM Organizer " +
                     "WHERE OrganizerEmail = @email AND Password = @password";
 
@@ -201,7 +201,7 @@ namespace testingPOE.Controllers
 
         // DELETE: api/Organizer?id=1
         // Delete organizer
-        [HttpDelete]
+        [HttpDelete("{id}")]
         public string DeleteOrganizer(int id)
         {
             string message = "";
@@ -213,7 +213,7 @@ namespace testingPOE.Controllers
 
                 connection.Open();
 
-                string query = "DELETE FROM Organizer WHERE id = @id";
+                string query = "DELETE FROM Organizer WHERE organizerID = @id";
 
                 using SqlCommand command =
                     new SqlCommand(query, connection);
@@ -267,7 +267,7 @@ namespace testingPOE.Controllers
                     "Organizername = @organizerName, " +
                     "OrganizerEmail = @organizerEmail, " +
                     "Password = @password " +
-                    "WHERE id = @id";
+                    "WHERE organizerID = @id";
 
                 using SqlCommand command =
                     new SqlCommand(query, connection);
