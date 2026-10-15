@@ -1,57 +1,83 @@
-﻿using poepart2.Controllers;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Xunit;
+using poepart2.Controllers;
 
 namespace Testing_Poe
 {
     public class testing_enrollment_controller
     {
-        
-// Enrollment controller test cases
-
-[Fact]
-public void test_EnrollmentGetAll()
+        // Test 1: Get all enrollments
+        [Fact]
+        public void test_EnrollmentGetAll()
         {
-            EnrollmentController get_all_enrollments = new EnrollmentController();
+            EnrollmentController controller = new EnrollmentController();
 
-            string results = get_all_enrollments.getAllEnrollments();
 
-            string expected_results =
-                "EventID: 2002, ParticipantID: 2002\n";
+        string addResult = controller.addEnrollment(2002, 2002);
 
-            Assert.Equal(expected_results, results);
+            // If the enrollment already exists, it may violate
+            // the table's primary key or unique constraint.
+            if (addResult == "Enrollment added successfully.")
+            {
+                string results = controller.getAllEnrollments();
+
+                Assert.Contains(
+                    "EventID: 2002, ParticipantID: 2002",
+                    results
+                );
+
+                controller.deleteEnrollment(2002, 2002);
+            }
+            else
+            {
+                Assert.Fail("Could not create enrollment for testing. " + addResult);
+            }
         }
 
-
+        // Test 2: Get enrollment by event ID and participant ID
         [Fact]
         public void test_EnrollmentGetByIds()
         {
-            EnrollmentController get_enrollment = new EnrollmentController();
+            EnrollmentController controller = new EnrollmentController();
 
-            string results = get_enrollment.getEnrollment(2002, 2002);
+            string addResult = controller.addEnrollment(2002, 2002);
 
-            string expected_results =
-                "EventID: 2002, ParticipantID: 2002";
+            if (addResult == "Enrollment added successfully.")
+            {
+                string results = controller.getEnrollment(2002, 2002);
 
-            Assert.Equal(expected_results, results);
+                Assert.Equal(
+                    "EventID: 2002, ParticipantID: 2002",
+                    results
+                );
+
+                controller.deleteEnrollment(2002, 2002);
+            }
+            else
+            {
+                Assert.Fail("Could not create enrollment for testing. " + addResult);
+            }
         }
 
-
+        // Test 3: Delete an enrollment
         [Fact]
         public void test_EnrollmentDelete()
         {
-            EnrollmentController delete_enrollment = new EnrollmentController();
+            EnrollmentController controller = new EnrollmentController();
 
-            string results = delete_enrollment.deleteEnrollment(2002, 2002);
+            string addResult = controller.addEnrollment(2002, 2002);
 
-            string expected_results = "Enrollment deleted successfully.";
+            if (addResult == "Enrollment added successfully.")
+            {
+                string results = controller.deleteEnrollment(2002, 2002);
 
-            Assert.Equal(expected_results, results);
+                Assert.Equal("Enrollment deleted successfully.", results);
+            }
+            else
+            {
+                Assert.Fail("Could not create enrollment for testing. " + addResult);
+            }
         }
-
-
     }
+
+
 }
