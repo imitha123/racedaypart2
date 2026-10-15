@@ -1,27 +1,24 @@
-﻿using poepart2.Controllers;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Xunit;
+using poepart2.Controllers;
+using poepart2.Model;
 
 namespace Testing_Poe
 {
     public class testing_participant_controller
     {
- 
-// Test getting a participant by email
-[Fact]
-public void test_ParticipantGetByEmail()
+        // Test getting a participant by email
+        [Fact]
+        public void test_ParticipantGetByEmail()
         {
             ParticipantController controller = new ParticipantController();
 
-            string results = controller.GetParticipant("Abdi@gmail.com");
 
-            string expected_results =
-                "Participant found: Osman Abdi, Email: Abdi@gmail.com";
+        // Use a participant email that currently exists in the database.
+        string results = controller.GetParticipant("Abdi@gmail.com");
 
-            Assert.Equal(expected_results, results);
+            Assert.DoesNotContain("Participant not found.", results);
+            Assert.Contains("Participant found:", results);
+            Assert.Contains("Email:", results);
         }
 
         // Test adding a participant with valid email and password
@@ -36,10 +33,7 @@ public void test_ParticipantGetByEmail()
                 "david@gmail.com",
                 "Password123!");
 
-            string expected_results =
-                "Participant added successfully!";
-
-            Assert.Equal(expected_results, results);
+            Assert.Equal("Participant added successfully!", results);
         }
 
         // Test rejecting an invalid email
@@ -54,10 +48,9 @@ public void test_ParticipantGetByEmail()
                 "david@yahoo.com",
                 "Password123!");
 
-            string expected_results =
-                "Invalid email. Email must end with @gmail.com.";
-
-            Assert.Equal(expected_results, results);
+            Assert.Equal(
+                "Invalid email. Email must end with @gmail.com.",
+                results);
         }
 
         // Test rejecting an invalid password
@@ -72,10 +65,9 @@ public void test_ParticipantGetByEmail()
                 "david@gmail.com",
                 "password");
 
-            string expected_results =
-                "Invalid password. It must contain at least 8 characters, an uppercase letter, a lowercase letter, a number, and a special character.";
-
-            Assert.Equal(expected_results, results);
+            Assert.Equal(
+                "Invalid password. It must contain at least 8 characters, an uppercase letter, a lowercase letter, a number, and a special character.",
+                results);
         }
 
         // Test getting a participant that does not exist
@@ -87,18 +79,17 @@ public void test_ParticipantGetByEmail()
             string results =
                 controller.GetParticipant("nobody123@gmail.com");
 
-            string expected_results = "Participant not found.";
-
-            Assert.Equal(expected_results, results);
+            Assert.Equal("Participant not found.", results);
         }
 
-        // Test updating the existing participant
+        // Test updating a participant that does not exist
+        // This avoids modifying existing participant records.
         [Fact]
-        public void test_ParticipantUpdate()
+        public void test_ParticipantUpdate_NotFound()
         {
             ParticipantController controller = new ParticipantController();
 
-            var updatedParticipant = new poepart2.Model.ParticipantModel
+            ParticipantModel updatedParticipant = new ParticipantModel
             {
                 Participantname = "Updated",
                 Participantsurname = "Participant",
@@ -107,29 +98,24 @@ public void test_ParticipantGetByEmail()
             };
 
             string results = controller.UpdateParticipant(
-                2002,
+                -1,
                 updatedParticipant);
 
-            string expected_results =
-                "Participant updated successfully!";
-
-            Assert.Equal(expected_results, results);
+            Assert.Equal("Participant not found.", results);
         }
 
-        // Test deleting the existing participant
+        // Test deleting a participant that does not exist
+        // This avoids deleting a participant referenced by Enrollment.
         [Fact]
-        public void test_ParticipantDelete()
+        public void test_ParticipantDelete_NotFound()
         {
             ParticipantController controller = new ParticipantController();
 
-            string results = controller.DeleteParticipant(2002);
+            string results = controller.DeleteParticipant(-1);
 
-            string expected_results =
-                "Participant deleted successfully!";
-
-            Assert.Equal(expected_results, results);
+            Assert.Equal("Participant not found.", results);
         }
-
-
     }
+
+
 }

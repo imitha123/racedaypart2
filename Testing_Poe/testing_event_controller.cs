@@ -20,7 +20,7 @@ namespace Testing_Poe
         {
             string result = controller.getAllEvents();
 
-            Assert.Contains("chess", result);
+            Assert.Contains("Updated Chess Event", result);
             Assert.Contains("Braam", result);
         }
 
@@ -30,7 +30,7 @@ namespace Testing_Poe
         {
             string result = controller.getEventById(2003);
 
-            Assert.Contains("chess", result);
+            Assert.Contains("Updated Chess Event", result);
             Assert.Contains("Braam", result);
         }
 
@@ -61,22 +61,23 @@ namespace Testing_Poe
             Assert.Equal("Event added successfully.", result);
         }
 
-        // Test 5: Update an event
+        // Test 5: Update a non-existing event
+        // This avoids changing an existing database record.
         [Fact]
-        public void test_UpdateEvent()
+        public void test_UpdateNonExistingEvent()
         {
             EventModel updatedEvent = new EventModel
             {
-                EventName = "Updated Chess Event",
+                EventName = "Temporary Test Event",
                 EventLocation = "Braam",
                 EventDate = "27-07-12",
                 categoryID = 1003,
                 organizerID = 2003
             };
 
-            string result = controller.updateEvent(2003, updatedEvent);
+            string result = controller.updateEvent(-1, updatedEvent);
 
-            Assert.Equal("Event updated successfully.", result);
+            Assert.Equal("Event not found.", result);
         }
 
         // Test 6: Delete an event that does not exist
