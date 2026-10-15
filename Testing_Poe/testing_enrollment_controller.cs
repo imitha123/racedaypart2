@@ -1,4 +1,5 @@
-﻿using Xunit;
+﻿
+using Xunit;
 using poepart2.Controllers;
 
 namespace Testing_Poe
@@ -11,26 +12,11 @@ namespace Testing_Poe
         {
             EnrollmentController controller = new EnrollmentController();
 
+            string results = controller.getAllEnrollments();
 
-        string addResult = controller.addEnrollment(2002, 2002);
-
-            // If the enrollment already exists, it may violate
-            // the table's primary key or unique constraint.
-            if (addResult == "Enrollment added successfully.")
-            {
-                string results = controller.getAllEnrollments();
-
-                Assert.Contains(
-                    "EventID: 2002, ParticipantID: 2002",
-                    results
-                );
-
-                controller.deleteEnrollment(2002, 2002);
-            }
-            else
-            {
-                Assert.Fail("Could not create enrollment for testing. " + addResult);
-            }
+            Assert.Contains("EventID: 3002, ParticipantID: 3005", results);
+            Assert.Contains("EventID: 3003, ParticipantID: 3006", results);
+            Assert.Contains("EventID: 3006, ParticipantID: 2002", results);
         }
 
         // Test 2: Get enrollment by event ID and participant ID
@@ -39,45 +25,69 @@ namespace Testing_Poe
         {
             EnrollmentController controller = new EnrollmentController();
 
-            string addResult = controller.addEnrollment(2002, 2002);
+            string results = controller.getEnrollment(3002, 3005);
 
-            if (addResult == "Enrollment added successfully.")
-            {
-                string results = controller.getEnrollment(2002, 2002);
-
-                Assert.Equal(
-                    "EventID: 2002, ParticipantID: 2002",
-                    results
-                );
-
-                controller.deleteEnrollment(2002, 2002);
-            }
-            else
-            {
-                Assert.Fail("Could not create enrollment for testing. " + addResult);
-            }
+            Assert.Equal(
+                "EventID: 3002, ParticipantID: 3005",
+                results
+            );
         }
 
-        // Test 3: Delete an enrollment
+        // Test 3: Get a nonexistent enrollment
         [Fact]
-        public void test_EnrollmentDelete()
+        public void test_EnrollmentGet_NotFound()
         {
             EnrollmentController controller = new EnrollmentController();
 
-            string addResult = controller.addEnrollment(2002, 2002);
+            string results = controller.getEnrollment(-1, -1);
 
-            if (addResult == "Enrollment added successfully.")
-            {
-                string results = controller.deleteEnrollment(2002, 2002);
+            Assert.Equal("Enrollment not found.", results);
+        }
 
-                Assert.Equal("Enrollment deleted successfully.", results);
-            }
-            else
-            {
-                Assert.Fail("Could not create enrollment for testing. " + addResult);
-            }
+        // Test 4: Add enrollment
+        [Fact]
+        public void test_EnrollmentAdd()
+        {
+            EnrollmentController controller = new EnrollmentController();
+
+            // Use an existing event and participant that are not
+            // currently paired in the Enrollment table.
+            string results = controller.addEnrollment(3002, 3006);
+
+            Assert.Equal("Enrollment added successfully.", results);
+
+            // Clean up the record created by this test.
+            string deleteResult = controller.deleteEnrollment(3002, 3006);
+
+            Assert.Equal("Enrollment deleted successfully.", deleteResult);
+        }
+
+        // Test 5: Update a nonexistent enrollment
+        [Fact]
+        public void test_EnrollmentUpdate_NotFound()
+        {
+            EnrollmentController controller = new EnrollmentController();
+
+            string results = controller.updateEnrollment(
+                -1,
+                -1,
+                -2,
+                -2
+            );
+
+            Assert.Equal("Enrollment not found.", results);
+        }
+
+        // Test 6: Delete a nonexistent enrollment
+        [Fact]
+        public void test_EnrollmentDelete_NotFound()
+        {
+            EnrollmentController controller = new EnrollmentController();
+
+            string results = controller.deleteEnrollment(-1, -1);
+
+            Assert.Equal("Enrollment not found.", results);
         }
     }
-
-
 }
+

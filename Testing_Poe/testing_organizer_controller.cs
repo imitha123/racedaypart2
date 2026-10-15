@@ -1,4 +1,5 @@
-﻿using Xunit;
+﻿
+using Xunit;
 using testingPOE.Controllers;
 
 namespace Testing_Poe
@@ -11,10 +12,11 @@ namespace Testing_Poe
         {
             OrganizerController controller = new OrganizerController();
 
-
-        string results = controller.getOrganizer();
+            string results = controller.getOrganizer();
 
             Assert.Contains("ID: 2003", results);
+            Assert.Contains("Name: Updated Organizer", results);
+            Assert.Contains("Email: updated@gmail.com", results);
         }
 
         // Test 2: Add an organizer with valid email and password
@@ -24,10 +26,10 @@ namespace Testing_Poe
             OrganizerController controller = new OrganizerController();
 
             string results = controller.AddOrganizer(
-                "David",
-                "david@gmail.com",
+                "TestOrganizer",
+                "organizer_test_2026@gmail.com",
                 "Password123!",
-                "Brown");
+                "TestSurname");
 
             Assert.Equal("Organizer added successfully.", results);
         }
@@ -39,12 +41,12 @@ namespace Testing_Poe
             OrganizerController controller = new OrganizerController();
 
             string results = controller.GetOrganizerByEmailAndPassword(
-                "imitha@gmail.com",
-                "Imitha123@18");
+                "updated@gmail.com",
+                "UpdatedPass123!");
 
-            Assert.StartsWith("Organizer found: ID: 2003", results);
-            Assert.Contains("Name: Imitha", results);
-            Assert.Contains("Email: imitha@gmail.com", results);
+            Assert.Equal(
+                "Organizer found: ID: 2003, Name: Updated Organizer, Email: updated@gmail.com",
+                results);
         }
 
         // Test 4: Reject an invalid email when adding an organizer
@@ -54,7 +56,7 @@ namespace Testing_Poe
             OrganizerController controller = new OrganizerController();
 
             string results = controller.AddOrganizer(
-                "David Brown",
+                "David",
                 "david@yahoo.com",
                 "Password123!",
                 "Brown");
@@ -71,7 +73,7 @@ namespace Testing_Poe
             OrganizerController controller = new OrganizerController();
 
             string results = controller.AddOrganizer(
-                "David Brown",
+                "David",
                 "david@gmail.com",
                 "password",
                 "Brown");
@@ -88,14 +90,13 @@ namespace Testing_Poe
             OrganizerController controller = new OrganizerController();
 
             string results = controller.GetOrganizerByEmailAndPassword(
-                "imitha@gmail.com",
+                "updated@gmail.com",
                 "WrongPassword123!");
 
             Assert.Equal("Invalid email or password.", results);
         }
 
         // Test 7: Delete a non-existing organizer
-        // This avoids deleting an organizer referenced by an event.
         [Fact]
         public void test_OrganizerDeleteNonExisting()
         {
@@ -107,7 +108,6 @@ namespace Testing_Poe
         }
 
         // Test 8: Update a non-existing organizer
-        // This avoids changing an existing organizer.
         [Fact]
         public void test_OrganizerUpdateNonExisting()
         {
@@ -116,12 +116,11 @@ namespace Testing_Poe
             string results = controller.UpdateOrganizer(
                 -1,
                 "Updated Organizer",
-                "updated@gmail.com",
+                "updated_test_2026@gmail.com",
                 "UpdatedPass123!");
 
             Assert.Equal("Organizer not found.", results);
         }
     }
-
-
 }
+

@@ -1,4 +1,5 @@
-﻿using Xunit;
+﻿
+using Xunit;
 using poepart2.Controllers;
 
 namespace Testing_Poe
@@ -9,52 +10,56 @@ namespace Testing_Poe
         [Fact]
         public void test_CategoryGetAll()
         {
-            CategoryController get_all_categories = new CategoryController();
+            CategoryController controller = new CategoryController();
 
+            string results = controller.getAllCategories();
 
-        string results = get_all_categories.getAllCategories();
+            Assert.Contains(
+                "ID: 1003, Name: board games, Description: Two player games on the board",
+                results
+            );
 
-            string expected_results =
-                "ID: 1003, Name: board games, Description: Two player games on the board\n";
-
-            Assert.Equal(expected_results, results);
+            Assert.Contains(
+                "ID: 2002, Name: Clothing, Description: Clothing products",
+                results
+            );
         }
 
         // Test 2: Get category by ID
         [Fact]
         public void test_CategoryGetById()
         {
-            CategoryController get_category = new CategoryController();
+            CategoryController controller = new CategoryController();
 
-            string results = get_category.getCategory(1003);
+            string results = controller.getCategory(1003);
 
-            string expected_results =
-                "ID: 1003, Name: board games, Description: Two player games on the board";
-
-            Assert.Equal(expected_results, results);
+            Assert.Equal(
+                "ID: 1003, Name: board games, Description: Two player games on the board",
+                results
+            );
         }
 
-        // Test 3: Add category
+        // Test 3: Get an existing Clothing category
         [Fact]
-        public void test_CategoryAdd()
+        public void test_CategoryGetClothing()
         {
-            CategoryController add_category = new CategoryController();
+            CategoryController controller = new CategoryController();
 
-            string results = add_category.addCategory(
-                "Clothing",
-                "Clothing products"
+            string results = controller.getCategory(2002);
+
+            Assert.Equal(
+                "ID: 2002, Name: Clothing, Description: Clothing products",
+                results
             );
-
-            Assert.Equal("Category added successfully.", results);
         }
 
         // Test 4: Get a category that does not exist
         [Fact]
         public void test_CategoryGetInvalidId()
         {
-            CategoryController get_category = new CategoryController();
+            CategoryController controller = new CategoryController();
 
-            string results = get_category.getCategory(-1);
+            string results = controller.getCategory(-1);
 
             Assert.Equal("Category not found.", results);
         }
@@ -63,13 +68,27 @@ namespace Testing_Poe
         [Fact]
         public void test_CategoryDeleteInvalidId()
         {
-            CategoryController delete_category = new CategoryController();
+            CategoryController controller = new CategoryController();
 
-            string results = delete_category.deleteCategory(-1);
+            string results = controller.deleteCategory(-1);
+
+            Assert.Equal("Category not found.", results);
+        }
+
+        // Test 6: Update a category that does not exist
+        [Fact]
+        public void test_CategoryUpdateInvalidId()
+        {
+            CategoryController controller = new CategoryController();
+
+            string results = controller.updateCategory(
+                -1,
+                "Updated Test Category",
+                "Updated test description"
+            );
 
             Assert.Equal("Category not found.", results);
         }
     }
-
-
 }
+

@@ -1,4 +1,5 @@
-﻿using Xunit;
+﻿
+using Xunit;
 using poepart2.Controllers;
 using poepart2.Model;
 
@@ -8,8 +9,7 @@ namespace Testing_Poe
     {
         private readonly EventController controller;
 
-
-    public EventControllerTests()
+        public EventControllerTests()
         {
             controller = new EventController();
         }
@@ -20,8 +20,13 @@ namespace Testing_Poe
         {
             string result = controller.getAllEvents();
 
-            Assert.Contains("Updated Chess Event", result);
-            Assert.Contains("Braam", result);
+            Assert.Contains(
+                "ID: 2003, Name: Updated Chess Event, Location: Braam, Date: 27-07-12",
+                result);
+
+            Assert.Contains(
+                "ID: 3002, Name: Testing Chess Event, Location: Braam, Date: 27-07-12",
+                result);
         }
 
         // Test 2: Get event by ID
@@ -30,8 +35,9 @@ namespace Testing_Poe
         {
             string result = controller.getEventById(2003);
 
-            Assert.Contains("Updated Chess Event", result);
-            Assert.Contains("Braam", result);
+            Assert.Equal(
+                "ID: 2003, Name: Updated Chess Event, Location: Braam, Date: 27-07-12",
+                result.Trim());
         }
 
         // Test 3: Get event using a non-existing ID
@@ -62,7 +68,6 @@ namespace Testing_Poe
         }
 
         // Test 5: Update a non-existing event
-        // This avoids changing an existing database record.
         [Fact]
         public void test_UpdateNonExistingEvent()
         {
@@ -80,7 +85,7 @@ namespace Testing_Poe
             Assert.Equal("Event not found.", result);
         }
 
-        // Test 6: Delete an event that does not exist
+        // Test 6: Delete a non-existing event
         [Fact]
         public void test_DeleteNonExistingEvent()
         {
@@ -89,6 +94,5 @@ namespace Testing_Poe
             Assert.Equal("Event not found.", result);
         }
     }
-
-
 }
+

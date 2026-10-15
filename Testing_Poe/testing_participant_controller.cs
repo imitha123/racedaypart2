@@ -1,4 +1,5 @@
-﻿using Xunit;
+﻿
+using Xunit;
 using poepart2.Controllers;
 using poepart2.Model;
 
@@ -6,37 +7,35 @@ namespace Testing_Poe
 {
     public class testing_participant_controller
     {
-        // Test getting a participant by email
+        // Test 1: Get a participant by an existing email
         [Fact]
         public void test_ParticipantGetByEmail()
         {
             ParticipantController controller = new ParticipantController();
 
+            string results = controller.GetParticipant("david@gmail.com");
 
-        // Use a participant email that currently exists in the database.
-        string results = controller.GetParticipant("Abdi@gmail.com");
-
-            Assert.DoesNotContain("Participant not found.", results);
             Assert.Contains("Participant found:", results);
-            Assert.Contains("Email:", results);
+            Assert.Contains("David Brown", results);
+            Assert.Contains("david@gmail.com", results);
         }
 
-        // Test adding a participant with valid email and password
+        // Test 2: Add a participant with a valid email and password
         [Fact]
         public void test_ParticipantAdd()
         {
             ParticipantController controller = new ParticipantController();
 
             string results = controller.AddParticipant(
-                "David",
-                "Brown",
-                "david@gmail.com",
+                "TestParticipant",
+                "TestSurname",
+                "participant_test_2026@gmail.com",
                 "Password123!");
 
             Assert.Equal("Participant added successfully!", results);
         }
 
-        // Test rejecting an invalid email
+        // Test 3: Reject an invalid email
         [Fact]
         public void test_ParticipantAdd_InvalidEmail()
         {
@@ -53,7 +52,7 @@ namespace Testing_Poe
                 results);
         }
 
-        // Test rejecting an invalid password
+        // Test 4: Reject an invalid password
         [Fact]
         public void test_ParticipantAdd_InvalidPassword()
         {
@@ -70,20 +69,19 @@ namespace Testing_Poe
                 results);
         }
 
-        // Test getting a participant that does not exist
+        // Test 5: Get a participant that does not exist
         [Fact]
         public void test_ParticipantGet_NotFound()
         {
             ParticipantController controller = new ParticipantController();
 
             string results =
-                controller.GetParticipant("nobody123@gmail.com");
+                controller.GetParticipant("nobody123456789@gmail.com");
 
             Assert.Equal("Participant not found.", results);
         }
 
-        // Test updating a participant that does not exist
-        // This avoids modifying existing participant records.
+        // Test 6: Update a participant that does not exist
         [Fact]
         public void test_ParticipantUpdate_NotFound()
         {
@@ -93,7 +91,7 @@ namespace Testing_Poe
             {
                 Participantname = "Updated",
                 Participantsurname = "Participant",
-                participantEmail = "updated@gmail.com",
+                participantEmail = "updated_test_2026@gmail.com",
                 participantPassword = "UpdatedPass123!"
             };
 
@@ -104,8 +102,7 @@ namespace Testing_Poe
             Assert.Equal("Participant not found.", results);
         }
 
-        // Test deleting a participant that does not exist
-        // This avoids deleting a participant referenced by Enrollment.
+        // Test 7: Delete a participant that does not exist
         [Fact]
         public void test_ParticipantDelete_NotFound()
         {
@@ -116,6 +113,5 @@ namespace Testing_Poe
             Assert.Equal("Participant not found.", results);
         }
     }
-
-
 }
+
