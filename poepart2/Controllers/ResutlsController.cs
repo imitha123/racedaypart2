@@ -14,7 +14,6 @@ namespace poepart2.Controllers
             @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
         // GET: api/Result
-        // Get all results
         [HttpGet]
         public string getAllResults()
         {
@@ -34,8 +33,8 @@ namespace poepart2.Controllers
                         while (reader.Read())
                         {
                             message += reader.GetValue(0).ToString() + " "
-                                    + reader.GetValue(1).ToString() + " "
-                                    + reader.GetValue(2).ToString() + "\n";
+                                     + reader.GetValue(1).ToString() + " "
+                                     + reader.GetValue(2).ToString() + "\n";
                         }
                     }
                 }
@@ -49,22 +48,23 @@ namespace poepart2.Controllers
         }
 
         // GET: api/Result/1
-        // Get a result by ID
-        [HttpGet("{id}")]
-        public string getResult([FromRoute] int id)
+        [HttpGet("{resultID}")]
+        public string getResult([FromRoute] int resultID)
         {
             string message = "";
 
             try
             {
-
                 using (SqlConnection connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
-                    string query = "SELECT * FROM Results WHERE resultID = @id";
+
+                    string query = "SELECT * FROM Results WHERE resultID = @resultID";
+
                     using (SqlCommand command = new SqlCommand(query, connection))
                     {
-                        command.Parameters.AddWithValue("@id", id);
+                        command.Parameters.AddWithValue("@resultID", resultID);
+
                         using (SqlDataReader reader = command.ExecuteReader())
                         {
                             if (reader.Read())
@@ -90,7 +90,6 @@ namespace poepart2.Controllers
         }
 
         // POST: api/Result
-        // Add a new result
         [HttpPost]
         public string addResult([FromBody] ResultsModel newResult)
         {
@@ -102,14 +101,12 @@ namespace poepart2.Controllers
                 {
                     connection.Open();
 
-                    string query = "INSERT INTO Results (Position_, Score, participantID) VALUES (@position, @score, @participantID)";
+                    string query = "INSERT INTO Results (Position, Score) VALUES (@position, @score)";
 
                     using (SqlCommand command = new SqlCommand(query, connection))
                     {
                         command.Parameters.AddWithValue("@position", newResult.Position);
                         command.Parameters.AddWithValue("@score", newResult.Score);
-                        command.Parameters.AddWithValue("@participantID", newResult.participantId);
-
 
                         int rowsAffected = command.ExecuteNonQuery();
 
@@ -128,9 +125,8 @@ namespace poepart2.Controllers
         }
 
         // PUT: api/Result/1
-        // Update an existing result
-        [HttpPut("{id}")]
-        public string updateResult([FromRoute] int id, [FromBody] ResultsModel updatedResult)
+        [HttpPut("{resultID}")]
+        public string updateResult([FromRoute] int resultID, [FromBody] ResultsModel updatedResult)
         {
             string message = "";
 
@@ -140,19 +136,13 @@ namespace poepart2.Controllers
                 {
                     connection.Open();
 
-
-                string query =
-                    "UPDATE Results " +
-                    "SET Position_ = @position, score = @score , participantID = @participantID " +
-                    "WHERE resultID = @id";
+                    string query = "UPDATE Results SET Position = @position, Score = @score WHERE resultID = @resultID";
 
                     using (SqlCommand command = new SqlCommand(query, connection))
                     {
                         command.Parameters.AddWithValue("@position", updatedResult.Position);
                         command.Parameters.AddWithValue("@score", updatedResult.Score);
-                        command.Parameters.AddWithValue("@id", id);
-                        command.Parameters.AddWithValue("@participantID", updatedResult.participantId);
-
+                        command.Parameters.AddWithValue("@resultID", resultID);
 
                         int rowsAffected = command.ExecuteNonQuery();
 
@@ -171,9 +161,8 @@ namespace poepart2.Controllers
         }
 
         // DELETE: api/Result/1
-        // Delete a result by ID
-        [HttpDelete("{id}")]
-        public string deleteResult([FromRoute] int id)
+        [HttpDelete("{resultID}")]
+        public string deleteResult([FromRoute] int resultID)
         {
             string message = "";
 
@@ -183,16 +172,11 @@ namespace poepart2.Controllers
                 {
                     connection.Open();
 
-                   
-
-
-                string query =
-                    "DELETE FROM Results WHERE resultID = @id";
+                    string query = "DELETE FROM Results WHERE resultID = @resultID";
 
                     using (SqlCommand command = new SqlCommand(query, connection))
                     {
-                        command.Parameters.AddWithValue("@id", id);
-
+                        command.Parameters.AddWithValue("@resultID", resultID);
 
                         int rowsAffected = command.ExecuteNonQuery();
 
