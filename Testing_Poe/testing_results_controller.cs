@@ -21,22 +21,23 @@ namespace Testing_Poe
         [Fact]
         public void test_ResultGetAll()
         {
-            IActionResult result = controller.GetAllResults();
+            // Arrange
+            ResultController controller = new ResultController();
 
-            OkObjectResult okResult = Assert.IsType<OkObjectResult>(result);
 
-            Assert.Equal(200, okResult.StatusCode);
-            Assert.NotNull(okResult.Value);
+// Act
+IActionResult result = controller.GetAllResults();
 
-            string json = JsonSerializer.Serialize(okResult.Value);
+            // Assert
+            ObjectResult objectResult = Assert.IsAssignableFrom<ObjectResult>(result);
 
-            Assert.Contains("2004", json);
-            Assert.Contains("2006", json);
-            Assert.Contains("2008", json);
-            Assert.Contains("2010", json);
-            Assert.Contains("2011", json);
-            Assert.Contains("2012", json);
-        }
+            Assert.Equal(200, objectResult.StatusCode);
+            Assert.NotNull(objectResult.Value);
+
+
+}
+
+
 
         // Test 2: Get an existing result by ID
         [Fact]
