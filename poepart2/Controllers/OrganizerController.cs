@@ -1,8 +1,14 @@
-﻿using System;
+﻿
+using System;
+using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
-using Microsoft.AspNetCore.Http;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
+using Microsoft.IdentityModel.Tokens;
+using poepart2.Services;
 
 namespace testingPOE.Controllers
 {
@@ -11,11 +17,20 @@ namespace testingPOE.Controllers
     public class OrganizerController : ControllerBase
     {
         private readonly string connectionString =
-        @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+            @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
+        private readonly PasswordService passwordService;
+        private readonly IConfiguration configuration;
 
-    // Validate email
-    private bool IsValidEmail(string email)
+        public OrganizerController(
+            PasswordService passwordService,
+            IConfiguration configuration)
+        {
+            this.passwordService = passwordService;
+            this.configuration = configuration;
+        }
+
+        private bool IsValidEmail(string email)
         {
             return !string.IsNullOrWhiteSpace(email) &&
                    email.EndsWith(
@@ -23,13 +38,10 @@ namespace testingPOE.Controllers
                        StringComparison.OrdinalIgnoreCase);
         }
 
-        // Validate password
         private bool IsValidPassword(string password)
         {
             if (string.IsNullOrWhiteSpace(password))
-            {
                 return false;
-            }
 
             return password.Length >= 8 &&
                    password.Any(char.IsUpper) &&
@@ -38,263 +50,456 @@ namespace testingPOE.Controllers
                    password.Any(c => !char.IsLetterOrDigit(c));
         }
 
-        // GET: api/Organizer
-        // Get all organizers
-        [HttpGet]
-        public string getOrganizer()
+        private string GenerateJwtToken(int organizerId, string email)
         {
-            string message = "";
+            string? jwtKey = configuration["Jwt:Key"];
+            string? jwtIssuer = configuration["Jwt:Issuer"];
+            string? jwtAudience = configuration["Jwt:Audience"];
+
+            if (string.IsNullOrWhiteSpace(jwtKey) ||
+                string.IsNullOrWhiteSpace(jwtIssuer) ||
+                string.IsNullOrWhiteSpace(jwtAudience))
+            {
+                throw new InvalidOperationException(
+                    "JWT configuration is missing.");
+            }
+
+            byte[] keyBytes;
 
             try
             {
-                using SqlConnection connection =
-                    new SqlConnection(connectionString);
+                keyBytes = Convert.FromBase64String(jwtKey);
+            }
+            catch (FormatException)
+            {
+                throw new InvalidOperationException(
+                    "JWT key must be Base64 encoded.");
+            }
 
+            if (keyBytes.Length < 32)
+            {
+                throw new InvalidOperationException(
+                    "JWT key must contain at least 32 bytes.");
+            }
+
+            var key = new SymmetricSecurityKey(keyBytes);
+
+            var credentials = new SigningCredentials(
+                key,
+                SecurityAlgorithms.HmacSha256);
+
+            var claims = new[]
+            {
+                new Claim(
+                    ClaimTypes.NameIdentifier,
+                    organizerId.ToString()),
+
+                new Claim(
+                    ClaimTypes.Email,
+                    email),
+
+                new Claim(
+                    ClaimTypes.Role,
+                    "Organizer")
+            };
+
+            var token = new JwtSecurityToken(
+                issuer: jwtIssuer,
+                audience: jwtAudience,
+                claims: claims,
+                expires: DateTime.UtcNow.AddHours(2),
+                signingCredentials: credentials);
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        // GET: api/Organizer
+        // Requires authentication.
+        [HttpGet]
+        [Authorize(Roles = "Organizer")]
+        public IActionResult GetOrganizers()
+        {
+            try
+            {
+                using var connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query = "SELECT * FROM Organizer";
+                const string query =
+                    "SELECT organizerID, organizerName, organizerEmail, surname " +
+                    "FROM Organizer";
 
-                using SqlCommand command =
-                    new SqlCommand(query, connection);
+                using var command = new SqlCommand(query, connection);
+                using var reader = command.ExecuteReader();
 
-                using SqlDataReader reader = command.ExecuteReader();
+                var organizers = new System.Collections.Generic.List<object>();
 
                 while (reader.Read())
                 {
-                    int id = reader.GetInt32(0);
-                    string organizerName = reader.GetString(1);
-                    string organizerEmail = reader.GetString(2);
-
-                    message +=
-                        $"ID: {id}, Name: {organizerName}, Email: {organizerEmail}\n";
+                    organizers.Add(new
+                    {
+                        OrganizerID = reader.GetInt32(0),
+                        OrganizerName = reader.GetString(1).Trim(),
+                        OrganizerEmail = reader.GetString(2).Trim(),
+                        Surname = reader.GetString(3).Trim()
+                    });
                 }
-            }
-            catch (Exception error)
-            {
-                message = error.Message;
-            }
 
-            return message;
+                return Ok(organizers);
+            }
+            catch (SqlException)
+            {
+                return StatusCode(
+                    500,
+                    new { message = "A database error occurred." });
+            }
         }
 
-        // POST: api/Organizer
-        // Add organizer
+        // POST: api/Organizer/Register
         [HttpPost("Register")]
-        public string AddOrganizer(
-            string organizerName,
-            string organizerEmail,
-            string password,
-            string surname)
+        [AllowAnonymous]
+        public IActionResult Register(
+            [FromBody] poepart2.Model.OrganizerRegisterModel model)
         {
-            if (!IsValidEmail(organizerEmail))
+            if (model == null)
+                return BadRequest(new { message = "Registration details are required." });
+
+            if (string.IsNullOrWhiteSpace(model.Organizername) ||
+                string.IsNullOrWhiteSpace(model.OrganizerSurname))
             {
-                return "Invalid email. Email must end with @gmail.com.";
+                return BadRequest(new { message = "Name and surname are required." });
             }
 
-            if (!IsValidPassword(password))
+            if (!IsValidEmail(model.OrganizerEmail))
             {
-                return "Invalid password. It must contain at least 8 characters, an uppercase letter, a lowercase letter, a number, and a special character.";
+                return BadRequest(new
+                {
+                    message = "Email must end with @gmail.com."
+                });
             }
 
-            string message = "";
+            if (!IsValidPassword(model.Password))
+            {
+                return BadRequest(new
+                {
+                    message = "Password must contain at least 8 characters, an uppercase letter, a lowercase letter, a number, and a special character."
+                });
+            }
 
             try
             {
-                using SqlConnection connection =
-                    new SqlConnection(connectionString);
-
+                using var connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query =
+                const string checkQuery =
+                    "SELECT COUNT(*) FROM Organizer WHERE LTRIM(RTRIM(organizerEmail)) = @email";
+
+                using (var checkCommand = new SqlCommand(checkQuery, connection))
+                {
+                    checkCommand.Parameters.AddWithValue(
+                        "@email",
+                        model.OrganizerEmail.Trim());
+
+                    int existing = (int)checkCommand.ExecuteScalar()!;
+
+                    if (existing > 0)
+                    {
+                        return Conflict(new
+                        {
+                            message = "An organizer with this email already exists."
+                        });
+                    }
+                }
+
+                string hashedPassword =
+                    passwordService.HashPassword(model.Password);
+
+                const string insertQuery =
                     "INSERT INTO Organizer " +
-                    "(Organizername, OrganizerEmail, Password, surname) " +
-                    "VALUES (@organizerName, @organizerEmail, @password, @surname)";
+                    "(organizerName, organizerEmail, password, surname) " +
+                    "VALUES (@name, @email, @password, @surname)";
 
-                using SqlCommand command =
-                    new SqlCommand(query, connection);
-
-                command.Parameters.AddWithValue(
-                    "@organizerName", organizerName);
+                using var command = new SqlCommand(insertQuery, connection);
 
                 command.Parameters.AddWithValue(
-                    "@organizerEmail", organizerEmail);
+                    "@name",
+                    model.Organizername.Trim());
 
-                // Demonstration only: use a password hash in real applications.
-                command.Parameters.AddWithValue("@password", password);
+                command.Parameters.AddWithValue(
+                    "@email",
+                    model.OrganizerEmail.Trim());
 
-                command.Parameters.AddWithValue("@surname", surname);
+                command.Parameters.AddWithValue(
+                    "@password",
+                    hashedPassword);
 
-                int rowsAffected = command.ExecuteNonQuery();
+                command.Parameters.AddWithValue(
+                    "@surname",
+                    model.OrganizerSurname.Trim());
 
-                message = rowsAffected > 0
-                    ? "Organizer added successfully."
-                    : "Organizer could not be added.";
+                int rows = command.ExecuteNonQuery();
+
+                if (rows > 0)
+                {
+                    return StatusCode(201, new
+                    {
+                        message = "Organizer registered successfully."
+                    });
+                }
+
+                return StatusCode(
+                    500,
+                    new { message = "Organizer registration failed." });
             }
-            catch (Exception error)
+            catch (SqlException)
             {
-                message = error.Message;
+                return StatusCode(
+                    500,
+                    new { message = "A database error occurred during registration." });
             }
-
-            return message;
         }
 
-        // GET: api/Organizer/login?email=...&password=...
-        // Find organizer by email and password
-        [HttpGet("login")]
-        public string GetOrganizerByEmailAndPassword(
-             string email,
-             string password)
+        // POST: api/Organizer/login
+        [HttpPost("login")]
+        [AllowAnonymous]
+        public IActionResult Login(
+            [FromBody] poepart2.Model.OrganizerLoginModel model)
         {
-            if (!IsValidEmail(email))
+            if (model == null ||
+                string.IsNullOrWhiteSpace(model.Email) ||
+                string.IsNullOrWhiteSpace(model.Password))
             {
-                return "Invalid email. Email must end with @gmail.com.";
+                return BadRequest(new
+                {
+                    message = "Email and password are required."
+                });
             }
 
-            if (!IsValidPassword(password))
+            if (!IsValidEmail(model.Email))
             {
-                return "Invalid password format.";
+                return BadRequest(new
+                {
+                    message = "Email must end with @gmail.com."
+                });
             }
-
-            string message = "";
 
             try
             {
-                using SqlConnection connection =
-                    new SqlConnection(connectionString);
-
+                using var connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query =
-                    "SELECT organizerID, Organizername, OrganizerEmail " +
+                const string query =
+                    "SELECT organizerID, organizerName, organizerEmail, password " +
                     "FROM Organizer " +
-                    "WHERE OrganizerEmail = @email AND Password = @password";
+                    "WHERE LTRIM(RTRIM(organizerEmail)) = @email";
 
-                using SqlCommand command =
-                    new SqlCommand(query, connection);
+                using var command = new SqlCommand(query, connection);
 
-                command.Parameters.AddWithValue("@email", email);
-                command.Parameters.AddWithValue("@password", password);
+                command.Parameters.AddWithValue(
+                    "@email",
+                    model.Email.Trim());
 
-                using SqlDataReader reader = command.ExecuteReader();
+                using var reader = command.ExecuteReader();
 
-                if (reader.Read())
+                if (!reader.Read())
                 {
-                    int organizerId = reader.GetInt32(0);
-                    string organizerName = reader.GetString(1);
-                    string organizerEmail = reader.GetString(2);
+                    return Unauthorized(new
+                    {
+                        message = "Invalid email or password."
+                    });
+                }
 
-                    message =
-                        $"Organizer found: ID: {organizerId}, Name: {organizerName}, Email: {organizerEmail}";
-                }
-                else
+                int organizerId = reader.GetInt32(0);
+                string organizerName = reader.GetString(1).Trim();
+                string organizerEmail = reader.GetString(2).Trim();
+                string storedPassword = reader.GetString(3).Trim();
+
+                reader.Close();
+
+                // Verify the submitted password against the stored hash.
+                bool passwordMatches;
+
+                try
                 {
-                    message = "Invalid email or password.";
+                    passwordMatches = passwordService.VerifyPassword(
+                        storedPassword,
+                        model.Password);
                 }
+                catch (FormatException)
+                {
+                    passwordMatches = false;
+                }
+
+                if (!passwordMatches)
+                {
+                    return Unauthorized(new
+                    {
+                        message = "Invalid email or password."
+                    });
+                }
+
+                string token = GenerateJwtToken(
+                    organizerId,
+                    organizerEmail);
+
+                return Ok(new
+                {
+                    message = "Login successful.",
+                    organizerId,
+                    organizerName,
+                    organizerEmail,
+                    token,
+                    tokenType = "Bearer",
+                    expiresIn = 7200
+                });
             }
-            catch (Exception error)
+            catch (SqlException)
             {
-                message = error.Message;
+                return StatusCode(
+                    500,
+                    new { message = "A database error occurred during login." });
             }
-
-            return message;
         }
 
-        // DELETE: api/Organizer?id=1
-        // Delete organizer
-        [HttpDelete("{id}")]
-        public string DeleteOrganizer(int id)
-        {
-            string message = "";
-
-            try
-            {
-                using SqlConnection connection =
-                    new SqlConnection(connectionString);
-
-                connection.Open();
-
-                string query = "DELETE FROM Organizer WHERE organizerID = @id";
-
-                using SqlCommand command =
-                    new SqlCommand(query, connection);
-
-                command.Parameters.AddWithValue("@id", id);
-
-                int rowsAffected = command.ExecuteNonQuery();
-
-                message = rowsAffected > 0
-                    ? "Organizer deleted successfully."
-                    : "Organizer not found.";
-            }
-            catch (Exception error)
-            {
-                message = error.Message;
-            }
-
-            return message;
-        }
-
-        // PUT: api/Organizer?id=1&organizerName=...&organizerEmail=...&password=...
-        // Update organizer
-        [HttpPut]
-        public string UpdateOrganizer(
+        // PUT: api/Organizer/1
+        // An organizer can update only their own account.
+        [HttpPut("{id:int}")]
+        [Authorize(Roles = "Organizer")]
+        public IActionResult UpdateOrganizer(
             int id,
-            string organizerName,
-            string organizerEmail,
-            string password)
+            [FromBody] poepart2.Model.OrganizerRegisterModel model)
         {
-            if (!IsValidEmail(organizerEmail))
+            string? authenticatedId =
+                User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(authenticatedId, out int tokenOrganizerId) ||
+                tokenOrganizerId != id)
             {
-                return "Invalid email. Email must end with @gmail.com.";
+                return Forbid();
             }
 
-            if (!IsValidPassword(password))
+            if (model == null)
+                return BadRequest(new { message = "Update details are required." });
+
+            if (string.IsNullOrWhiteSpace(model.Organizername) ||
+                string.IsNullOrWhiteSpace(model.OrganizerSurname))
             {
-                return "Invalid password. It must contain at least 8 characters, an uppercase letter, a lowercase letter, a number, and a special character.";
+                return BadRequest(new { message = "Name and surname are required." });
             }
 
-            string message = "";
+            if (!IsValidEmail(model.OrganizerEmail))
+            {
+                return BadRequest(new
+                {
+                    message = "Email must end with @gmail.com."
+                });
+            }
+
+            if (!IsValidPassword(model.Password))
+            {
+                return BadRequest(new
+                {
+                    message = "Password must contain at least 8 characters, an uppercase letter, a lowercase letter, a number, and a special character."
+                });
+            }
 
             try
             {
-                using SqlConnection connection =
-                    new SqlConnection(connectionString);
-
+                using var connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query =
+                const string emailCheck =
+                    "SELECT COUNT(*) FROM Organizer " +
+                    "WHERE LTRIM(RTRIM(organizerEmail)) = @email " +
+                    "AND organizerID <> @id";
+
+                using (var check = new SqlCommand(emailCheck, connection))
+                {
+                    check.Parameters.AddWithValue("@email", model.OrganizerEmail.Trim());
+                    check.Parameters.AddWithValue("@id", id);
+
+                    if ((int)check.ExecuteScalar()! > 0)
+                    {
+                        return Conflict(new
+                        {
+                            message = "Another organizer already uses this email."
+                        });
+                    }
+                }
+
+                string hashedPassword =
+                    passwordService.HashPassword(model.Password);
+
+                const string query =
                     "UPDATE Organizer SET " +
-                    "Organizername = @organizerName, " +
-                    "OrganizerEmail = @organizerEmail, " +
-                    "Password = @password " +
+                    "organizerName = @name, " +
+                    "organizerEmail = @email, " +
+                    "password = @password, " +
+                    "surname = @surname " +
                     "WHERE organizerID = @id";
 
-                using SqlCommand command =
-                    new SqlCommand(query, connection);
+                using var command = new SqlCommand(query, connection);
 
-                command.Parameters.AddWithValue(
-                    "@organizerName", organizerName);
-
-                command.Parameters.AddWithValue(
-                    "@organizerEmail", organizerEmail);
-
-                command.Parameters.AddWithValue("@password", password);
+                command.Parameters.AddWithValue("@name", model.Organizername.Trim());
+                command.Parameters.AddWithValue("@email", model.OrganizerEmail.Trim());
+                command.Parameters.AddWithValue("@password", hashedPassword);
+                command.Parameters.AddWithValue("@surname", model.OrganizerSurname.Trim());
                 command.Parameters.AddWithValue("@id", id);
 
-                int rowsAffected = command.ExecuteNonQuery();
+                int rows = command.ExecuteNonQuery();
 
-                message = rowsAffected > 0
-                    ? "Organizer updated successfully."
-                    : "Organizer not found.";
+                if (rows == 0)
+                    return NotFound(new { message = "Organizer not found." });
+
+                return Ok(new { message = "Organizer updated successfully." });
             }
-            catch (Exception error)
+            catch (SqlException)
             {
-                message = error.Message;
+                return StatusCode(
+                    500,
+                    new { message = "A database error occurred while updating the organizer." });
+            }
+        }
+
+        // DELETE: api/Organizer/1
+        // An organizer can delete only their own account.
+        [HttpDelete("{id:int}")]
+        [Authorize(Roles = "Organizer")]
+        public IActionResult DeleteOrganizer(int id)
+        {
+            string? authenticatedId =
+                User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(authenticatedId, out int tokenOrganizerId) ||
+                tokenOrganizerId != id)
+            {
+                return Forbid();
             }
 
-            return message;
+            try
+            {
+                using var connection = new SqlConnection(connectionString);
+                connection.Open();
+
+                const string query =
+                    "DELETE FROM Organizer WHERE organizerID = @id";
+
+                using var command = new SqlCommand(query, connection);
+                command.Parameters.AddWithValue("@id", id);
+
+                int rows = command.ExecuteNonQuery();
+
+                if (rows == 0)
+                    return NotFound(new { message = "Organizer not found." });
+
+                return Ok(new { message = "Organizer deleted successfully." });
+            }
+            catch (SqlException)
+            {
+                return StatusCode(
+                    500,
+                    new { message = "A database error occurred while deleting the organizer." });
+            }
         }
     }
-
-
 }
+
