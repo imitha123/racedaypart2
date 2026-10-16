@@ -1,4 +1,4 @@
-```yaml
+
 name: RaceDay Build and Unit Tests
 
 on: [push, pull_request, workflow_dispatch]
@@ -28,4 +28,4 @@ jobs:
 
       - name: Run unit tests
         run: dotnet test --configuration Release --no-build --logger "console;verbosity=normal"
-```
+
