@@ -1,8 +1,16 @@
 ﻿using System;
+using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Security.Claims;
+using System.Text;
+
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
+using Microsoft.IdentityModel.Tokens;
+
 using poepart2.Model;
+using poepart2.Services;
 
 namespace poepart2.Controllers
 {
@@ -11,11 +19,21 @@ namespace poepart2.Controllers
     public class ParticipantController : ControllerBase
     {
         private readonly string connectionString =
-        @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+            @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
+        private readonly PasswordService passwordService;
+        private readonly IConfiguration configuration;
 
-    // Validate email address
-    private bool IsValidEmail(string email)
+        public ParticipantController(
+            PasswordService passwordService,
+            IConfiguration configuration)
+        {
+            this.passwordService = passwordService;
+            this.configuration = configuration;
+        }
+
+        // Validate email address
+        private bool IsValidEmail(string email)
         {
             return !string.IsNullOrWhiteSpace(email) &&
                    email.EndsWith(
@@ -38,27 +56,107 @@ namespace poepart2.Controllers
                    password.Any(c => !char.IsLetterOrDigit(c));
         }
 
-        // POST: api/Participant
-        // Add participant
+        // Generate JWT token for a Participant
+        private string GenerateJwtToken(int participantId, string email)
+        {
+            string? jwtKey = configuration["Jwt:Key"];
+            string? jwtIssuer = configuration["Jwt:Issuer"];
+            string? jwtAudience = configuration["Jwt:Audience"];
+
+            if (string.IsNullOrWhiteSpace(jwtKey) ||
+                string.IsNullOrWhiteSpace(jwtIssuer) ||
+                string.IsNullOrWhiteSpace(jwtAudience))
+            {
+                throw new InvalidOperationException(
+                    "JWT configuration is missing.");
+            }
+
+            // The signing key must be Base64 encoded,
+            // matching the configuration used by Program.cs.
+            byte[] keyBytes = Convert.FromBase64String(jwtKey);
+
+            if (keyBytes.Length < 32)
+            {
+                throw new InvalidOperationException(
+                    "The JWT signing key must contain at least 32 bytes.");
+            }
+
+            var securityKey = new SymmetricSecurityKey(keyBytes);
+
+            var credentials = new SigningCredentials(
+                securityKey,
+                SecurityAlgorithms.HmacSha256);
+
+            var claims = new[]
+            {
+                new Claim(
+                    ClaimTypes.NameIdentifier,
+                    participantId.ToString()),
+
+                new Claim(
+                    ClaimTypes.Email,
+                    email),
+
+                new Claim(
+                    ClaimTypes.Role,
+                    "Participant")
+            };
+
+            var token = new JwtSecurityToken(
+                issuer: jwtIssuer,
+                audience: jwtAudience,
+                claims: claims,
+                expires: DateTime.UtcNow.AddHours(1),
+                signingCredentials: credentials);
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        // Get the authenticated Participant's ID from their JWT
+        private bool TryGetParticipantId(out int participantId)
+        {
+            string? id = User.FindFirstValue(
+                ClaimTypes.NameIdentifier);
+
+            return int.TryParse(id, out participantId);
+        }
+
+        // POST: api/Participant/Register
+        // Register a new Participant
+        [AllowAnonymous]
         [HttpPost("Register")]
-        public string AddParticipant(
+        public IActionResult AddParticipant(
             [FromQuery] string participantName,
             [FromQuery] string participantSurname,
             [FromQuery] string email,
             [FromQuery] string password)
         {
+            if (string.IsNullOrWhiteSpace(participantName) ||
+                string.IsNullOrWhiteSpace(participantSurname))
+            {
+                return BadRequest(new
+                {
+                    message = "Participant name and surname are required."
+                });
+            }
 
             if (!IsValidEmail(email))
             {
-                return "Invalid email. Email must end with @gmail.com.";
+                return BadRequest(new
+                {
+                    message = "Email must end with @gmail.com."
+                });
             }
 
             if (!IsValidPassword(password))
             {
-                return "Invalid password. It must contain at least 8 characters, an uppercase letter, a lowercase letter, a number, and a special character.";
+                return BadRequest(new
+                {
+                    message = "Password must contain at least 8 characters, " +
+                              "an uppercase letter, a lowercase letter, " +
+                              "a number, and a special character."
+                });
             }
-
-            string message = "";
 
             try
             {
@@ -67,49 +165,94 @@ namespace poepart2.Controllers
 
                 connection.Open();
 
-                string query =
+                // Check whether the email already exists
+                string checkQuery =
+                    "SELECT COUNT(*) FROM Participant WHERE LTRIM(RTRIM(Email)) = @email";
+
+                using (SqlCommand checkCommand =
+                    new SqlCommand(checkQuery, connection))
+                {
+                    checkCommand.Parameters.AddWithValue("@email", email);
+
+                    int existingParticipants =
+                        (int)checkCommand.ExecuteScalar()!;
+
+                    if (existingParticipants > 0)
+                    {
+                        return Conflict(new
+                        {
+                            message = "A participant with this email already exists."
+                        });
+                    }
+                }
+
+                // Hash the password before storing it
+                string hashedPassword =
+                    passwordService.HashPassword(password);
+
+                string insertQuery =
                     "INSERT INTO Participant " +
-                    "(Participantname, Participantsurname, email, password) " +
-                    "VALUES (@name, @surname, @email, @password)";
+                    "(Participantname, Participantsurname, Email, Password) " +
+                    "VALUES (@name, @surname, @email, @password); " +
+                    "SELECT CAST(SCOPE_IDENTITY() AS INT);";
 
                 using SqlCommand command =
-                    new SqlCommand(query, connection);
+                    new SqlCommand(insertQuery, connection);
 
-                command.Parameters.AddWithValue("@name", participantName);
-                command.Parameters.AddWithValue("@surname", participantSurname);
-                command.Parameters.AddWithValue("@email", email);
-                command.Parameters.AddWithValue("@password", password);
+                command.Parameters.AddWithValue(
+                    "@name", participantName.Trim());
 
-                int rowsAffected = command.ExecuteNonQuery();
+                command.Parameters.AddWithValue(
+                    "@surname", participantSurname.Trim());
 
-                message = rowsAffected > 0
-                    ? "Participant added successfully!"
-                    : "Participant could not be added.";
+                command.Parameters.AddWithValue(
+                    "@email", email.Trim());
+
+                command.Parameters.AddWithValue(
+                    "@password", hashedPassword);
+
+                int participantId = (int)command.ExecuteScalar()!;
+
+                return StatusCode(201, new
+                {
+                    message = "Participant registered successfully.",
+                    participantId,
+                    email = email.Trim()
+                });
             }
-            catch (Exception error)
+            catch (Exception)
             {
-                message = error.Message;
+                return StatusCode(500, new
+                {
+                    message = "An error occurred while registering the participant."
+                });
             }
-
-            return message;
         }
 
-        // GET: api/Participant?email=example@gmail.com
-        // Get participant by email
-        [HttpGet("login")]
-        public string GetParticipant( string email, string password)
+        // POST: api/Participant/Login
+        // Login and return a JWT token
+        [AllowAnonymous]
+        [HttpPost("Login")]
+        public IActionResult Login(
+            [FromBody] ParticipantLoginRequest request)
         {
-            if (!IsValidEmail(email))
+            if (request == null ||
+                string.IsNullOrWhiteSpace(request.Email) ||
+                string.IsNullOrWhiteSpace(request.Password))
             {
-                return "Invalid email. Email must end with @gmail.com.";
+                return BadRequest(new
+                {
+                    message = "Email and password are required."
+                });
             }
 
-            if (!IsValidPassword(password))
+            if (!IsValidEmail(request.Email))
             {
-                return "Invalid password. It must contain at least 8 characters, an uppercase letter, a lowercase letter, a number, and a special character.";
+                return BadRequest(new
+                {
+                    message = "Email must end with @gmail.com."
+                });
             }
-
-            string message = "";
 
             try
             {
@@ -119,62 +262,128 @@ namespace poepart2.Controllers
                 connection.Open();
 
                 string query =
-                    "SELECT Participantname, Participantsurname, Email " +
-                    "FROM Participant WHERE Email = @email AND Password = @password";
+                    "SELECT participantID, Participantname, " +
+                    "Participantsurname, Email, Password " +
+                    "FROM Participant " +
+                    "WHERE LTRIM(RTRIM(Email)) = @email";
 
                 using SqlCommand command =
                     new SqlCommand(query, connection);
 
-                command.Parameters.AddWithValue("@email", email);
-                command.Parameters.AddWithValue("@password", password);
+                command.Parameters.AddWithValue(
+                    "@email", request.Email.Trim());
 
                 using SqlDataReader reader = command.ExecuteReader();
 
-                if (reader.Read())
+                if (!reader.Read())
                 {
-                    string name = reader.GetString(0);
-                    string surname = reader.GetString(1);
-                    string participantEmail = reader.GetString(2);
+                    return Unauthorized(new
+                    {
+                        message = "Invalid email or password."
+                    });
+                }
 
-                    message =
-                        $"Participant found: {name} {surname}, Email: {participantEmail}";
-                }
-                else
+                int participantId = reader.GetInt32(0);
+
+                string name = reader.GetString(1).Trim();
+                string surname = reader.GetString(2).Trim();
+                string email = reader.GetString(3).Trim();
+                string storedPassword = reader.GetString(4).TrimEnd();
+
+                // Verify the supplied password against the stored hash
+                bool passwordIsValid =
+                    passwordService.VerifyPassword(
+                        storedPassword,
+                        request.Password);
+
+                if (!passwordIsValid)
                 {
-                    message = "Participant not found.";
+                    return Unauthorized(new
+                    {
+                        message = "Invalid email or password."
+                    });
                 }
+
+                // Close the reader before generating the response
+                reader.Close();
+
+                string token = GenerateJwtToken(
+                    participantId,
+                    email);
+
+                return Ok(new
+                {
+                    message = "Participant login successful.",
+                    participantId,
+                    name,
+                    surname,
+                    email,
+                    role = "Participant",
+                    tokenType = "Bearer",
+                    token
+                });
             }
-            catch (Exception error)
+            catch (Exception)
             {
-                message = error.Message;
+                return StatusCode(500, new
+                {
+                    message = "An error occurred while logging in."
+                });
             }
-
-            return message;
         }
 
         // PUT: api/Participant/1
-        // Update participant
+        // A Participant can update only their own account
+        [Authorize(Roles = "Participant")]
         [HttpPut("{id}")]
-        public string UpdateParticipant(
+        public IActionResult UpdateParticipant(
             [FromRoute] int id,
             [FromBody] ParticipantModel updatedParticipant)
         {
             if (updatedParticipant == null)
             {
-                return "Invalid participant details.";
+                return BadRequest(new
+                {
+                    message = "Invalid participant details."
+                });
+            }
+
+            if (!TryGetParticipantId(out int authenticatedId))
+            {
+                return Unauthorized();
+            }
+
+            if (authenticatedId != id)
+            {
+                return Forbid();
+            }
+
+            if (string.IsNullOrWhiteSpace(updatedParticipant.Participantname) ||
+                string.IsNullOrWhiteSpace(updatedParticipant.Participantsurname))
+            {
+                return BadRequest(new
+                {
+                    message = "Participant name and surname are required."
+                });
             }
 
             if (!IsValidEmail(updatedParticipant.participantEmail))
             {
-                return "Invalid email. Email must end with @gmail.com.";
+                return BadRequest(new
+                {
+                    message = "Email must end with @gmail.com."
+                });
             }
 
             if (!IsValidPassword(updatedParticipant.participantPassword))
             {
-                return "Invalid password. It must contain at least 8 characters, an uppercase letter, a lowercase letter, a number, and a special character.";
+                return BadRequest(new
+                {
+                    message = "Password must contain at least 8 characters, " +
+                              "an uppercase letter, a lowercase letter, " +
+                              "a number, and a special character."
+                });
             }
-
-            string message = "";
 
             try
             {
@@ -182,6 +391,11 @@ namespace poepart2.Controllers
                     new SqlConnection(connectionString);
 
                 connection.Open();
+
+                // Hash the new password before updating the database
+                string hashedPassword =
+                    passwordService.HashPassword(
+                        updatedParticipant.participantPassword);
 
                 string query =
                     "UPDATE Participant SET " +
@@ -195,39 +409,63 @@ namespace poepart2.Controllers
                     new SqlCommand(query, connection);
 
                 command.Parameters.AddWithValue(
-                    "@name", updatedParticipant.Participantname);
+                    "@name",
+                    updatedParticipant.Participantname.Trim());
 
                 command.Parameters.AddWithValue(
-                    "@surname", updatedParticipant.Participantsurname);
+                    "@surname",
+                    updatedParticipant.Participantsurname.Trim());
 
                 command.Parameters.AddWithValue(
-                    "@email", updatedParticipant.participantEmail);
+                    "@email",
+                    updatedParticipant.participantEmail.Trim());
 
                 command.Parameters.AddWithValue(
-                    "@password", updatedParticipant.participantPassword);
+                    "@password",
+                    hashedPassword);
 
                 command.Parameters.AddWithValue("@id", id);
 
                 int rowsAffected = command.ExecuteNonQuery();
 
-                message = rowsAffected > 0
-                    ? "Participant updated successfully!"
-                    : "Participant not found.";
-            }
-            catch (Exception error)
-            {
-                message = error.Message;
-            }
+                if (rowsAffected == 0)
+                {
+                    return NotFound(new
+                    {
+                        message = "Participant not found."
+                    });
+                }
 
-            return message;
+                return Ok(new
+                {
+                    message = "Participant updated successfully."
+                });
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, new
+                {
+                    message = "An error occurred while updating the participant."
+                });
+            }
         }
 
         // DELETE: api/Participant/1
-        // Delete participant
+        // A Participant can delete only their own account
+        [Authorize(Roles = "Participant")]
         [HttpDelete("{id}")]
-        public string DeleteParticipant([FromRoute] int id)
+        public IActionResult DeleteParticipant(
+            [FromRoute] int id)
         {
-            string message = "";
+            if (!TryGetParticipantId(out int authenticatedId))
+            {
+                return Unauthorized();
+            }
+
+            if (authenticatedId != id)
+            {
+                return Forbid();
+            }
 
             try
             {
@@ -246,18 +484,34 @@ namespace poepart2.Controllers
 
                 int rowsAffected = command.ExecuteNonQuery();
 
-                message = rowsAffected > 0
-                    ? "Participant deleted successfully!"
-                    : "Participant not found.";
-            }
-            catch (Exception error)
-            {
-                message = error.Message;
-            }
+                if (rowsAffected == 0)
+                {
+                    return NotFound(new
+                    {
+                        message = "Participant not found."
+                    });
+                }
 
-            return message;
+                return Ok(new
+                {
+                    message = "Participant deleted successfully."
+                });
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, new
+                {
+                    message = "An error occurred while deleting the participant."
+                });
+            }
         }
     }
 
+    // Request model used by the Participant login endpoint
+    public class ParticipantLoginRequest
+    {
+        public string Email { get; set; } = string.Empty;
 
+        public string Password { get; set; } = string.Empty;
+    }
 }
