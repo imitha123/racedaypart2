@@ -127,7 +127,7 @@ namespace poepart2.Controllers
 
         // PUT: api/Result/1
         [HttpPut("{resultID}")]
-        public string updateResult([FromRoute] int resultID, [FromBody] ResultsModel updatedResult)
+        public string updateResult(int resultID, ResultsModel updatedResult)
         {
             string message = "";
 
@@ -137,12 +137,13 @@ namespace poepart2.Controllers
                 {
                     connection.Open();
 
-                    string query = "UPDATE Results SET Position_ = @position, Score = @score WHERE resultID = @resultID";
+                    string query = "UPDATE Results SET Position_ = @position, Score = @score, participantID = @participantID WHERE resultID = @resultID";
 
                     using (SqlCommand command = new SqlCommand(query, connection))
                     {
                         command.Parameters.AddWithValue("@position", updatedResult.Position);
                         command.Parameters.AddWithValue("@score", updatedResult.Score);
+                        command.Parameters.AddWithValue("@participantID", updatedResult.participantId);
                         command.Parameters.AddWithValue("@resultID", resultID);
 
                         int rowsAffected = command.ExecuteNonQuery();

@@ -54,7 +54,8 @@ namespace Testing_Poe
             ResultsModel newResult = new ResultsModel
             {
                 Position = "Test Position",
-                Score = 999
+                Score = 999,
+                participantId = 3003
             };
 
             string results = controller.addResult(newResult);
@@ -68,22 +69,17 @@ namespace Testing_Poe
         {
             ResultController controller = new ResultController();
 
-            // Add a temporary test result first.
-            ResultsModel newResult = new ResultsModel
+           ResultsModel updatedResult = new ResultsModel
             {
-                Position = "Temporary Position",
-                Score = 50
-            };
+                Position = "New:3rd",
+                Score = 95,
+                participantId = 3003
+           };
 
-            string addResult = controller.addResult(newResult);
+            string updateResult = controller.updateResult(2008, updatedResult);
 
-            Assert.Equal("Result added successfully.", addResult);
 
-            // Find the newly added record by checking the result table.
-            // The controller's add method does not return its generated ID.
-            string allResults = controller.getAllResults();
-
-            Assert.Contains("Temporary Position", allResults);
+            Assert.Equal("Result updated successfully.", updateResult);
         }
 
         // Test 6: Update a result that does not exist
