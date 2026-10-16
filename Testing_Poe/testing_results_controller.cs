@@ -1,6 +1,5 @@
 ﻿using Xunit;
 using Microsoft.AspNetCore.Mvc;
-using System.Text.Json;
 using System.Security.Claims;
 using poepart2.Controllers;
 using poepart2.Model;
@@ -17,45 +16,16 @@ namespace Testing_Poe
             controller = new ResultController();
         }
 
-        // Test 1: Get all results
+        // Test 1: Get all results without relying on fixed IDs.
         [Fact]
         public void test_ResultGetAll()
         {
-            // Arrange
-            ResultController controller = new ResultController();
+            IActionResult result = controller.GetAllResults();
 
-
-// Act
-IActionResult result = controller.GetAllResults();
-
-            // Assert
-            ObjectResult objectResult = Assert.IsAssignableFrom<ObjectResult>(result);
-
-            Assert.Equal(200, objectResult.StatusCode);
-            Assert.NotNull(objectResult.Value);
-
-
-}
-
-
-
-        // Test 2: Get an existing result by ID
-        [Fact]
-        public void test_ResultGetById()
-        {
-            IActionResult result = controller.GetResult(2004);
-
-            OkObjectResult okResult = Assert.IsType<OkObjectResult>(result);
-
-            Assert.Equal(200, okResult.StatusCode);
-
-            string json = JsonSerializer.Serialize(okResult.Value);
-
-            Assert.Contains("85", json);
-            Assert.Contains("4th", json);
+            Assert.IsType<OkObjectResult>(result);
         }
 
-        // Test 3: Get a result using an invalid ID
+        // Test 2: Reject a result ID less than or equal to zero.
         [Fact]
         public void test_ResultGetByInvalidId()
         {
@@ -64,7 +34,7 @@ IActionResult result = controller.GetAllResults();
             Assert.IsType<BadRequestObjectResult>(result);
         }
 
-        // Test 4: Reject a result with an invalid position
+        // Test 3: Reject a result with an invalid position.
         [Fact]
         public void test_ResultAdd_InvalidPosition()
         {
@@ -72,7 +42,7 @@ IActionResult result = controller.GetAllResults();
 
             ResultsModel newResult = new ResultsModel
             {
-                Position = "Test Position",
+                Position = 0,
                 Score = 999,
                 participantId = 3003
             };
@@ -82,7 +52,7 @@ IActionResult result = controller.GetAllResults();
             Assert.IsType<BadRequestObjectResult>(result);
         }
 
-        // Test 5: Reject a result with a negative score
+        // Test 4: Reject a result with a negative score.
         [Fact]
         public void test_ResultAdd_NegativeScore()
         {
@@ -90,7 +60,7 @@ IActionResult result = controller.GetAllResults();
 
             ResultsModel newResult = new ResultsModel
             {
-                Position = "3",
+                Position = 3,
                 Score = -1,
                 participantId = 3003
             };
@@ -100,7 +70,7 @@ IActionResult result = controller.GetAllResults();
             Assert.IsType<BadRequestObjectResult>(result);
         }
 
-        // Test 6: Reject updating a result with an invalid ID
+        // Test 5: Reject updating a result with an invalid ID.
         [Fact]
         public void test_ResultUpdateInvalidId()
         {
@@ -108,7 +78,7 @@ IActionResult result = controller.GetAllResults();
 
             ResultsModel updatedResult = new ResultsModel
             {
-                Position = "3",
+                Position = 3,
                 Score = 95,
                 participantId = 3003
             };
@@ -119,7 +89,7 @@ IActionResult result = controller.GetAllResults();
             Assert.IsType<BadRequestObjectResult>(result);
         }
 
-        // Test 7: Reject deleting a result with an invalid ID
+        // Test 6: Reject deleting a result with an invalid ID.
         [Fact]
         public void test_ResultDeleteInvalidId()
         {
@@ -131,7 +101,7 @@ IActionResult result = controller.GetAllResults();
         }
 
         // Helper: create a controller with an Organizer identity.
-        // Direct controller calls do not execute the authorization middleware.
+        // Direct method calls do not execute authorization middleware.
         private ResultController CreateOrganizerController()
         {
             var testController = new ResultController();

@@ -3,7 +3,7 @@
     public class ResultsModel
     {
         public int Id { get; set; }
-        public string Position { get; set; }
+        public int Position { get; set; }
 
         public int Score { get; set; }
 

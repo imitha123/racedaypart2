@@ -14,6 +14,7 @@ namespace poepart2.Controllers
         private readonly string connectionString =
         @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
+
     // GET: api/Result
     // Get all results
     [HttpGet]
@@ -39,9 +40,15 @@ namespace poepart2.Controllers
                     results.Add(new
                     {
                         ResultID = reader.GetInt32(0),
-                        Position = reader.GetValue(1),
-                        Score = reader.GetValue(2),
-                        ParticipantID = reader.GetInt32(3)
+                        Position = reader.IsDBNull(1)
+                            ? (int?)null
+                            : reader.GetInt32(1),
+                        Score = reader.IsDBNull(2)
+                            ? (int?)null
+                            : Convert.ToInt32(reader.GetValue(2)),
+                        ParticipantID = reader.IsDBNull(3)
+                            ? (int?)null
+                            : reader.GetInt32(3)
                     });
                 }
 
@@ -103,9 +110,15 @@ namespace poepart2.Controllers
                 var result = new
                 {
                     ResultID = reader.GetInt32(0),
-                    Position = reader.GetValue(1),
-                    Score = reader.GetValue(2),
-                    ParticipantID = reader.GetInt32(3)
+                    Position = reader.IsDBNull(1)
+                        ? (int?)null
+                        : reader.GetInt32(1),
+                    Score = reader.IsDBNull(2)
+                        ? (int?)null
+                        : Convert.ToInt32(reader.GetValue(2)),
+                    ParticipantID = reader.IsDBNull(3)
+                        ? (int?)null
+                        : reader.GetInt32(3)
                 };
 
                 return Ok(result);
@@ -148,24 +161,19 @@ namespace poepart2.Controllers
                 });
             }
 
-            if (string.IsNullOrWhiteSpace(newResult.Position) ||
-!int.TryParse(newResult.Position, out int position) ||
-position <= 0 ||
-newResult.Score < 0)
+            if (newResult.Position <= 0 || newResult.Score < 0)
             {
                 return BadRequest(new
                 {
-                    message = "Position must be a positive number and score cannot be negative."
+                    message = "Position must be greater than zero and score cannot be negative."
                 });
             }
-
 
             try
             {
                 using SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                // Check whether the participant exists.
                 string participantQuery = @"
                 SELECT COUNT(*)
                 FROM Participant
@@ -178,7 +186,7 @@ newResult.Score < 0)
                     "@participantID", newResult.participantId);
 
                 int participantExists =
-                    (int)participantCommand.ExecuteScalar()!;
+                    Convert.ToInt32(participantCommand.ExecuteScalar());
 
                 if (participantExists == 0)
                 {
@@ -201,7 +209,7 @@ newResult.Score < 0)
                 command.Parameters.AddWithValue(
                     "@participantID", newResult.participantId);
 
-                int resultID = (int)command.ExecuteScalar()!;
+                int resultID = Convert.ToInt32(command.ExecuteScalar());
 
                 return CreatedAtAction(
                     nameof(GetResult),
@@ -263,24 +271,19 @@ newResult.Score < 0)
                 });
             }
 
-            if (string.IsNullOrWhiteSpace(updatedResult.Position) ||
-!int.TryParse(updatedResult.Position, out int position) ||
-position <= 0 ||
-updatedResult.Score < 0)
+            if (updatedResult.Position <= 0 || updatedResult.Score < 0)
             {
                 return BadRequest(new
                 {
-                    message = "Position must be a positive number and score cannot be negative."
+                    message = "Position must be greater than zero and score cannot be negative."
                 });
             }
-
 
             try
             {
                 using SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                // Check that the result exists.
                 string resultQuery = @"
                 SELECT COUNT(*)
                 FROM Results
@@ -291,7 +294,7 @@ updatedResult.Score < 0)
 
                 resultCommand.Parameters.AddWithValue("@resultID", resultID);
 
-                if ((int)resultCommand.ExecuteScalar()! == 0)
+                if (Convert.ToInt32(resultCommand.ExecuteScalar()) == 0)
                 {
                     return NotFound(new
                     {
@@ -299,7 +302,6 @@ updatedResult.Score < 0)
                     });
                 }
 
-                // Check that the participant exists.
                 string participantQuery = @"
                 SELECT COUNT(*)
                 FROM Participant
@@ -311,7 +313,7 @@ updatedResult.Score < 0)
                 participantCommand.Parameters.AddWithValue(
                     "@participantID", updatedResult.participantId);
 
-                if ((int)participantCommand.ExecuteScalar()! == 0)
+                if (Convert.ToInt32(participantCommand.ExecuteScalar()) == 0)
                 {
                     return BadRequest(new
                     {
