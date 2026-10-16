@@ -1,116 +1,203 @@
-﻿
-using Xunit;
+﻿using Xunit;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
+using System;
+using System.Collections.Generic;
+using System.Security.Claims;
 using poepart2.Controllers;
 using poepart2.Model;
+using poepart2.Services;
 
 namespace Testing_Poe
 {
     public class testing_participant_controller
     {
-        // Test 1: Get a participant by an existing email
-        [Fact]
-        public void test_ParticipantGetByEmail()
+        private ParticipantController CreateController(
+        ClaimsPrincipal? user = null)
         {
-            ParticipantController controller = new ParticipantController();
+            var passwordService = new PasswordService();
 
-            string results = controller.GetParticipant("maneli04@gmail.com", "Imitha123@18");
 
-            Assert.Equal("Participant found: Imitha               Maneli              , Email: maneli04@gmail.com  ", results);
-           
+        var settings = new Dictionary<string, string?>
+        {
+            ["Jwt:Key"] = Convert.ToBase64String(
+                System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)),
+            ["Jwt:Issuer"] = "Testing_Poe",
+            ["Jwt:Audience"] = "Testing_Poe"
+        };
+
+            IConfiguration configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(settings)
+                .Build();
+
+            var controller = new ParticipantController(
+                passwordService,
+                configuration);
+
+            controller.ControllerContext = new ControllerContext
+            {
+                HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext()
+            };
+
+            if (user != null)
+            {
+                controller.ControllerContext.HttpContext.User = user;
+            }
+
+            return controller;
         }
 
-        // Test 2: Add a participant with a valid email and password
-        [Fact]
-        public void test_ParticipantAdd()
-        {
-            ParticipantController controller = new ParticipantController();
-
-            string results = controller.AddParticipant(
-                "TestName",
-                "TestSurname",
-                "test_2026@gmail.com",
-                "Password123!");
-
-            Assert.Equal("Participant added successfully!", results);
-        }
-
-        // Test 3: Reject an invalid email
+        // Test 1: Reject registration with an invalid email
         [Fact]
         public void test_ParticipantAdd_InvalidEmail()
         {
-            ParticipantController controller = new ParticipantController();
+            ParticipantController controller = CreateController();
 
-            string results = controller.AddParticipant(
+            IActionResult result = controller.AddParticipant(
                 "David",
                 "Brown",
                 "david@yahoo.com",
                 "Password123!");
 
-            Assert.Equal(
-                "Invalid email. Email must end with @gmail.com.",
-                results);
+            Assert.IsType<BadRequestObjectResult>(result);
         }
 
-        // Test 4: Reject an invalid password
+        // Test 2: Reject registration with an invalid password
         [Fact]
         public void test_ParticipantAdd_InvalidPassword()
         {
-            ParticipantController controller = new ParticipantController();
+            ParticipantController controller = CreateController();
 
-            string results = controller.AddParticipant(
+            IActionResult result = controller.AddParticipant(
                 "David",
                 "Brown",
                 "david@gmail.com",
                 "password");
 
-            Assert.Equal(
-                "Invalid password. It must contain at least 8 characters, an uppercase letter, a lowercase letter, a number, and a special character.",
-                results);
+            Assert.IsType<BadRequestObjectResult>(result);
         }
 
-        // Test 5: Get a participant that does not exist
+        // Test 3: Reject registration when the participant name is missing
         [Fact]
-        public void test_ParticipantGet_NotFound()
+        public void test_ParticipantAdd_MissingName()
         {
-            ParticipantController controller = new ParticipantController();
+            ParticipantController controller = CreateController();
 
-            string results =
-                controller.GetParticipant("nobody123456789@gmail.com", "SomePassword123!");
+            IActionResult result = controller.AddParticipant(
+                "",
+                "Brown",
+                "david@gmail.com",
+                "Password123!");
 
-            Assert.Equal("Participant not found.", results);
+            Assert.IsType<BadRequestObjectResult>(result);
         }
 
-        // Test 6: Update a participant that does not exist
+        // Test 4: Reject login with an invalid email
         [Fact]
-        public void test_ParticipantUpdate_NotFound()
+        public void test_ParticipantLogin_InvalidEmail()
         {
-            ParticipantController controller = new ParticipantController();
+            ParticipantController controller = CreateController();
 
-            ParticipantModel updatedParticipant = new ParticipantModel
+            var request = new ParticipantLoginRequest
+            {
+                Email = "david@yahoo.com",
+                Password = "Password123!"
+            };
+
+            IActionResult result = controller.Login(request);
+
+            Assert.IsType<BadRequestObjectResult>(result);
+        }
+
+        // Test 5: Reject login when email or password is missing
+        [Fact]
+        public void test_ParticipantLogin_MissingCredentials()
+        {
+            ParticipantController controller = CreateController();
+
+            var request = new ParticipantLoginRequest
+            {
+                Email = "",
+                Password = ""
+            };
+
+            IActionResult result = controller.Login(request);
+
+            Assert.IsType<BadRequestObjectResult>(result);
+        }
+
+        // Test 6: Reject login when the participant does not exist
+        [Fact]
+        public void test_ParticipantLogin_InvalidCredentials()
+        {
+            ParticipantController controller = CreateController();
+
+            var request = new ParticipantLoginRequest
+            {
+                Email = "nobody_test_987654@gmail.com",
+                Password = "WrongPassword123!"
+            };
+
+            IActionResult result = controller.Login(request);
+
+            // A missing account should produce 401 if the database
+            // connection and query work successfully.
+            Assert.IsType<UnauthorizedObjectResult>(result);
+        }
+
+        // Test 7: Reject updating another participant's account
+        [Fact]
+        public void test_ParticipantUpdate_WrongOwner()
+        {
+            var identity = new ClaimsIdentity(
+                new[]
+                {
+                new Claim(ClaimTypes.NameIdentifier, "3005"),
+                new Claim(ClaimTypes.Role, "Participant")
+                },
+                "TestAuthentication");
+
+            var user = new ClaimsPrincipal(identity);
+            ParticipantController controller = CreateController(user);
+
+            var updatedParticipant = new ParticipantModel
             {
                 Participantname = "Updated",
                 Participantsurname = "Participant",
-                participantEmail = "2026@gmail.com",
+                participantEmail = "updated_test_2026@gmail.com",
                 participantPassword = "UpdatePass123!"
             };
 
-            string results = controller.UpdateParticipant(
-                -1,
-                updatedParticipant);
+            // The authenticated participant is 3005, but the requested
+            // account is -1. The action should forbid the operation.
+            IActionResult result =
+                controller.UpdateParticipant(-1, updatedParticipant);
 
-            Assert.Equal("Participant not found.", results);
+            Assert.IsType<ForbidResult>(result);
         }
 
-        // Test 7: Delete a participant that does not exist
+        // Test 8: Reject deleting another participant's account
         [Fact]
-        public void test_ParticipantDelete_NotFound()
+        public void test_ParticipantDelete_WrongOwner()
         {
-            ParticipantController controller = new ParticipantController();
+            var identity = new ClaimsIdentity(
+                new[]
+                {
+                new Claim(ClaimTypes.NameIdentifier, "3005"),
+                new Claim(ClaimTypes.Role, "Participant")
+                },
+                "TestAuthentication");
 
-            string results = controller.DeleteParticipant(-1);
+            var user = new ClaimsPrincipal(identity);
+            ParticipantController controller = CreateController(user);
 
-            Assert.Equal("Participant not found.", results);
+            // The authenticated participant is 3005, but the requested
+            // account is -1. The action should forbid the operation.
+            IActionResult result = controller.DeleteParticipant(-1);
+
+            Assert.IsType<ForbidResult>(result);
         }
     }
-}
 
+
+}

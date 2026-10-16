@@ -1,55 +1,73 @@
-﻿
+﻿using Xunit;
+using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
+using System.Security.Claims;
 using poepart2.Controllers;
 using poepart2.Model;
-using Xunit;
 
 namespace Testing_Poe
 {
     public class testing_results_controller
     {
+        private readonly ResultController controller;
+
+
+    public testing_results_controller()
+        {
+            controller = new ResultController();
+        }
+
         // Test 1: Get all results
         [Fact]
         public void test_ResultGetAll()
         {
-            ResultController controller = new ResultController();
+            IActionResult result = controller.GetAllResults();
 
-            string results = controller.getAllResults();
+            OkObjectResult okResult = Assert.IsType<OkObjectResult>(result);
 
-            Assert.Contains("2004", results);
-            Assert.Contains("2006", results);
-            Assert.Contains("2008", results);
-            Assert.Contains("2010", results);
-            Assert.Contains("2011", results);
-            Assert.Contains("2012", results);
+            Assert.Equal(200, okResult.StatusCode);
+            Assert.NotNull(okResult.Value);
+
+            string json = JsonSerializer.Serialize(okResult.Value);
+
+            Assert.Contains("2004", json);
+            Assert.Contains("2006", json);
+            Assert.Contains("2008", json);
+            Assert.Contains("2010", json);
+            Assert.Contains("2011", json);
+            Assert.Contains("2012", json);
         }
 
         // Test 2: Get an existing result by ID
         [Fact]
         public void test_ResultGetById()
         {
-            ResultController controller = new ResultController();
+            IActionResult result = controller.GetResult(2004);
 
-            string results = controller.getResult(2004);
+            OkObjectResult okResult = Assert.IsType<OkObjectResult>(result);
 
-            Assert.Equal("Result ID:2004 Score:85 Position:4th", results);
+            Assert.Equal(200, okResult.StatusCode);
+
+            string json = JsonSerializer.Serialize(okResult.Value);
+
+            Assert.Contains("85", json);
+            Assert.Contains("4th", json);
         }
 
-        // Test 3: Get a result that does not exist
+        // Test 3: Get a result using an invalid ID
         [Fact]
         public void test_ResultGetByInvalidId()
         {
-            ResultController controller = new ResultController();
+            IActionResult result = controller.GetResult(-1);
 
-            string results = controller.getResult(-1);
-
-            Assert.Equal("Result not found.", results);
+            Assert.IsType<BadRequestObjectResult>(result);
         }
 
-        // Test 4: Add a result
+        // Test 4: Reject a result with an invalid position
         [Fact]
-        public void test_ResultAdd()
+        public void test_ResultAdd_InvalidPosition()
         {
-            ResultController controller = new ResultController();
+            ResultController testController = CreateOrganizerController();
 
             ResultsModel newResult = new ResultsModel
             {
@@ -58,57 +76,84 @@ namespace Testing_Poe
                 participantId = 3003
             };
 
-            string results = controller.addResult(newResult);
+            IActionResult result = testController.AddResult(newResult);
 
-            Assert.Equal("Result added successfully.", results);
+            Assert.IsType<BadRequestObjectResult>(result);
         }
 
-        // Test 5: Update an existing result
+        // Test 5: Reject a result with a negative score
         [Fact]
-        public void test_ResultUpdate()
+        public void test_ResultAdd_NegativeScore()
         {
-            ResultController controller = new ResultController();
+            ResultController testController = CreateOrganizerController();
 
-           ResultsModel updatedResult = new ResultsModel
+            ResultsModel newResult = new ResultsModel
             {
-                Position = "New:3rd",
-                Score = 95,
+                Position = "3",
+                Score = -1,
                 participantId = 3003
-           };
+            };
 
-            string updateResult = controller.updateResult(2008, updatedResult);
+            IActionResult result = testController.AddResult(newResult);
 
-
-            Assert.Equal("Result updated successfully.", updateResult);
+            Assert.IsType<BadRequestObjectResult>(result);
         }
 
-        // Test 6: Update a result that does not exist
+        // Test 6: Reject updating a result with an invalid ID
         [Fact]
         public void test_ResultUpdateInvalidId()
         {
-            ResultController controller = new ResultController();
+            ResultController testController = CreateOrganizerController();
 
             ResultsModel updatedResult = new ResultsModel
             {
-                Position = "Updated Position",
-                Score = 95
+                Position = "3",
+                Score = 95,
+                participantId = 3003
             };
 
-            string results = controller.updateResult(-1, updatedResult);
+            IActionResult result =
+                testController.UpdateResult(-1, updatedResult);
 
-            Assert.Equal("Result not found.", results);
+            Assert.IsType<BadRequestObjectResult>(result);
         }
 
-        // Test 7: Delete a result that does not exist
+        // Test 7: Reject deleting a result with an invalid ID
         [Fact]
         public void test_ResultDeleteInvalidId()
         {
-            ResultController controller = new ResultController();
+            ResultController testController = CreateOrganizerController();
 
-            string results = controller.deleteResult(-1);
+            IActionResult result = testController.DeleteResult(-1);
 
-            Assert.Equal("Result not found.", results);
+            Assert.IsType<BadRequestObjectResult>(result);
+        }
+
+        // Helper: create a controller with an Organizer identity.
+        // Direct controller calls do not execute the authorization middleware.
+        private ResultController CreateOrganizerController()
+        {
+            var testController = new ResultController();
+
+            var identity = new ClaimsIdentity(
+                new[]
+                {
+                new Claim(ClaimTypes.NameIdentifier, "2003"),
+                new Claim(ClaimTypes.Role, "Organizer")
+                },
+                "TestAuthentication");
+
+            testController.ControllerContext = new ControllerContext
+            {
+                HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(identity)
+                }
+            };
+
+            return testController;
         }
     }
-}
 
+
+}

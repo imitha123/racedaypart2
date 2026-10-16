@@ -1,6 +1,7 @@
-﻿
-using Xunit;
+﻿using Xunit;
+using Microsoft.AspNetCore.Mvc;
 using poepart2.Controllers;
+using System.Text.Json;
 
 namespace Testing_Poe
 {
@@ -12,17 +13,18 @@ namespace Testing_Poe
         {
             CategoryController controller = new CategoryController();
 
-            string results = controller.getAllCategories();
 
-            Assert.Contains(
-                "ID: 1003, Name: board games, Description: Two player games on the board",
-                results
-            );
+        IActionResult result = controller.GetAllCategories();
 
-            Assert.Contains(
-                "ID: 2002, Name: Clothing, Description: Clothing products",
-                results
-            );
+            OkObjectResult okResult = Assert.IsType<OkObjectResult>(result);
+
+            Assert.Equal(200, okResult.StatusCode);
+            Assert.NotNull(okResult.Value);
+
+            string json = JsonSerializer.Serialize(okResult.Value);
+
+            Assert.Contains("board games", json);
+            Assert.Contains("Clothing", json);
         }
 
         // Test 2: Get category by ID
@@ -31,12 +33,16 @@ namespace Testing_Poe
         {
             CategoryController controller = new CategoryController();
 
-            string results = controller.getCategory(1003);
+            IActionResult result = controller.GetCategory(1003);
 
-            Assert.Equal(
-                "ID: 1003, Name: board games, Description: Two player games on the board",
-                results
-            );
+            OkObjectResult okResult = Assert.IsType<OkObjectResult>(result);
+
+            Assert.Equal(200, okResult.StatusCode);
+
+            string json = JsonSerializer.Serialize(okResult.Value);
+
+            Assert.Contains("board games", json);
+            Assert.Contains("Two player games on the board", json);
         }
 
         // Test 3: Get an existing Clothing category
@@ -45,12 +51,16 @@ namespace Testing_Poe
         {
             CategoryController controller = new CategoryController();
 
-            string results = controller.getCategory(2002);
+            IActionResult result = controller.GetCategory(2002);
 
-            Assert.Equal(
-                "ID: 2002, Name: Clothing, Description: Clothing products",
-                results
-            );
+            OkObjectResult okResult = Assert.IsType<OkObjectResult>(result);
+
+            Assert.Equal(200, okResult.StatusCode);
+
+            string json = JsonSerializer.Serialize(okResult.Value);
+
+            Assert.Contains("Clothing", json);
+            Assert.Contains("Clothing products", json);
         }
 
         // Test 4: Get a category that does not exist
@@ -59,36 +69,39 @@ namespace Testing_Poe
         {
             CategoryController controller = new CategoryController();
 
-            string results = controller.getCategory(-1);
+            IActionResult result = controller.GetCategory(-1);
 
-            Assert.Equal("Category not found.", results);
+            Assert.IsType<BadRequestObjectResult>(result);
         }
 
-        // Test 5: Delete a category that does not exist
+        // Test 5: Delete a category with an invalid ID
         [Fact]
         public void test_CategoryDeleteInvalidId()
         {
             CategoryController controller = new CategoryController();
 
-            string results = controller.deleteCategory(-1);
+            IActionResult result = controller.DeleteCategory(-1);
 
-            Assert.Equal("Category not found.", results);
+            Assert.IsType<BadRequestObjectResult>(result);
         }
 
-        // Test 6: Update a category that does not exist
+        // Test 6: Update a category with an invalid ID
         [Fact]
         public void test_CategoryUpdateInvalidId()
         {
             CategoryController controller = new CategoryController();
 
-            string results = controller.updateCategory(
-                -1,
-                "Updated Test Category",
-                "Updated test description"
-            );
+            CategoryRequest request = new CategoryRequest
+            {
+                Name = "Updated Test Category",
+                Description = "Updated test description"
+            };
 
-            Assert.Equal("Category not found.", results);
+            IActionResult result = controller.UpdateCategory(-1, request);
+
+            Assert.IsType<BadRequestObjectResult>(result);
         }
     }
-}
 
+
+}

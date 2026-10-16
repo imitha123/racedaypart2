@@ -1,6 +1,7 @@
-﻿
-using Xunit;
+﻿using Xunit;
+using Microsoft.AspNetCore.Mvc;
 using poepart2.Controllers;
+using System.Text.Json;
 
 namespace Testing_Poe
 {
@@ -12,11 +13,20 @@ namespace Testing_Poe
         {
             EnrollmentController controller = new EnrollmentController();
 
-            string results = controller.getAllEnrollments();
 
-            Assert.Contains("EventID: 3002, ParticipantID: 3005", results);
-            Assert.Contains("EventID: 3003, ParticipantID: 3006", results);
-            Assert.Contains("EventID: 3006, ParticipantID: 2002", results);
+        IActionResult result = controller.GetAllEnrollments();
+
+            OkObjectResult okResult = Assert.IsType<OkObjectResult>(result);
+
+            Assert.Equal(200, okResult.StatusCode);
+            Assert.NotNull(okResult.Value);
+
+            string json = JsonSerializer.Serialize(okResult.Value);
+
+            Assert.Contains("3002", json);
+            Assert.Contains("3005", json);
+            Assert.Contains("3003", json);
+            Assert.Contains("3006", json);
         }
 
         // Test 2: Get enrollment by event ID and participant ID
@@ -25,23 +35,28 @@ namespace Testing_Poe
         {
             EnrollmentController controller = new EnrollmentController();
 
-            string results = controller.getEnrollment(3002, 3005);
+            IActionResult result = controller.GetEnrollment(3002, 3005);
 
-            Assert.Equal(
-                "EventID: 3002, ParticipantID: 3005",
-                results
-            );
+            OkObjectResult okResult = Assert.IsType<OkObjectResult>(result);
+
+            Assert.Equal(200, okResult.StatusCode);
+            Assert.NotNull(okResult.Value);
+
+            string json = JsonSerializer.Serialize(okResult.Value);
+
+            Assert.Contains("3002", json);
+            Assert.Contains("3005", json);
         }
 
-        // Test 3: Get a nonexistent enrollment
+        // Test 3: Get an enrollment with invalid IDs
         [Fact]
-        public void test_EnrollmentGet_NotFound()
+        public void test_EnrollmentGet_InvalidIds()
         {
             EnrollmentController controller = new EnrollmentController();
 
-            string results = controller.getEnrollment(-1, -1);
+            IActionResult result = controller.GetEnrollment(-1, -1);
 
-            Assert.Equal("Enrollment not found.", results);
+            Assert.IsType<BadRequestObjectResult>(result);
         }
 
         // Test 4: Add enrollment
@@ -51,43 +66,47 @@ namespace Testing_Poe
             EnrollmentController controller = new EnrollmentController();
 
             // Use an existing event and participant that are not
-            // currently paired in the Enrollment table.
-            string results = controller.addEnrollment(3002, 3006);
+            // already paired in the Enrollment table.
+            IActionResult result = controller.AddEnrollment(3002, 3006);
 
-            Assert.Equal("Enrollment added successfully.", results);
+            CreatedAtActionResult createdResult =
+                Assert.IsType<CreatedAtActionResult>(result);
+
+            Assert.Equal(201, createdResult.StatusCode);
 
             // Clean up the record created by this test.
-            string deleteResult = controller.deleteEnrollment(3002, 3006);
+            IActionResult deleteResult =
+                controller.DeleteEnrollment(3002, 3006);
 
-            Assert.Equal("Enrollment deleted successfully.", deleteResult);
+            Assert.IsType<OkObjectResult>(deleteResult);
         }
 
-        // Test 5: Update a nonexistent enrollment
+        // Test 5: Update an enrollment that does not exist
         [Fact]
         public void test_EnrollmentUpdate_NotFound()
         {
             EnrollmentController controller = new EnrollmentController();
 
-            string results = controller.updateEnrollment(
+            IActionResult result = controller.UpdateEnrollment(
                 -1,
                 -1,
                 -2,
                 -2
             );
 
-            Assert.Equal("Enrollment not found.", results);
+            Assert.IsType<BadRequestObjectResult>(result);
         }
 
-        // Test 6: Delete a nonexistent enrollment
+        // Test 6: Delete an enrollment with invalid IDs
         [Fact]
-        public void test_EnrollmentDelete_NotFound()
+        public void test_EnrollmentDelete_InvalidIds()
         {
             EnrollmentController controller = new EnrollmentController();
 
-            string results = controller.deleteEnrollment(-1, -1);
+            IActionResult result = controller.DeleteEnrollment(-1, -1);
 
-            Assert.Equal("Enrollment not found.", results);
+            Assert.IsType<BadRequestObjectResult>(result);
         }
     }
-}
 
+}

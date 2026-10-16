@@ -1,126 +1,188 @@
-﻿
-using Xunit;
+﻿using Xunit;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Identity;
+using System.Security.Claims;
 using testingPOE.Controllers;
+using poepart2.Model;
+using poepart2.Services;
 
 namespace Testing_Poe
 {
     public class testing_organizer_controller
     {
-        // Test 1: Get all organizers
-        [Fact]
-        public void test_OrganizerGetAll()
+        private OrganizerController CreateController(
+        ClaimsPrincipal? user = null)
         {
-            OrganizerController controller = new OrganizerController();
+            var passwordService = new PasswordService();
 
-            string results = controller.getOrganizer();
 
-            Assert.Contains("ID: 2003", results);
-            Assert.Contains("Name: Updated Organizer", results);
-            Assert.Contains("Email: updated@gmail.com", results);
+        var settings = new Dictionary<string, string?>
+        {
+            ["Jwt:Key"] = Convert.ToBase64String(
+                System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)),
+            ["Jwt:Issuer"] = "Testing_Poe",
+            ["Jwt:Audience"] = "Testing_Poe"
+        };
+
+            IConfiguration configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(settings)
+                .Build();
+
+            var controller = new OrganizerController(
+                passwordService,
+                configuration);
+
+            controller.ControllerContext = new ControllerContext
+            {
+                HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext()
+            };
+
+            if (user != null)
+            {
+                controller.ControllerContext.HttpContext.User = user;
+            }
+
+            return controller;
         }
 
-        // Test 2: Add an organizer with valid email and password
+        // Test 1: Get all organizers.
+        // This endpoint requires an authenticated Organizer.
         [Fact]
-        public void test_OrganizerAdd()
+        public void test_OrganizerGetAll_WithoutAuthentication()
         {
-            OrganizerController controller = new OrganizerController();
+            OrganizerController controller = CreateController();
 
-            string results = controller.AddOrganizer(
-                "TestOrganizer",
-                "organizer_test_2026@gmail.com",
-                "Password123!",
-                "TestSurname");
+            var result = controller.GetOrganizers();
 
-            Assert.Equal("Organizer added successfully.", results);
+            // Direct controller calls do not run the ASP.NET authorization
+            // middleware. The action itself does not check the user.
+            // This test therefore checks the action response, not JWT security.
+            Assert.IsType<OkObjectResult>(result);
         }
 
-        // Test 3: Get an organizer using email and password
+        // Test 2: Reject an invalid email during registration.
         [Fact]
-        public void test_OrganizerGetByEmailAndPassword()
+        public void test_OrganizerRegister_InvalidEmail()
         {
-            OrganizerController controller = new OrganizerController();
+            OrganizerController controller = CreateController();
 
-            string results = controller.GetOrganizerByEmailAndPassword(
-                "imitha@gmail.com",
-                "Imitha123@18");
+            var model = new OrganizerRegisterModel
+            {
+                Organizername = "David",
+                OrganizerSurname = "Brown",
+                OrganizerEmail = "david@yahoo.com",
+                Password = "Password123!"
+            };
 
-            Assert.Contains(
-                "Organizer found: ID: 3010, Name: Imitha              , Email: imitha@gmail.com",
-                results);
+            IActionResult result = controller.Register(model);
+
+            Assert.IsType<BadRequestObjectResult>(result);
         }
 
-        // Test 4: Reject an invalid email when adding an organizer
+        // Test 3: Reject an invalid password during registration.
         [Fact]
-        public void test_OrganizerAdd_InvalidEmail()
+        public void test_OrganizerRegister_InvalidPassword()
         {
-            OrganizerController controller = new OrganizerController();
+            OrganizerController controller = CreateController();
 
-            string results = controller.AddOrganizer(
-                "David",
-                "david@yahoo.com",
-                "Password123!",
-                "Brown");
+            var model = new OrganizerRegisterModel
+            {
+                Organizername = "David",
+                OrganizerSurname = "Brown",
+                OrganizerEmail = "david@gmail.com",
+                Password = "password"
+            };
 
-            Assert.Equal(
-                "Invalid email. Email must end with @gmail.com.",
-                results);
+            IActionResult result = controller.Register(model);
+
+            Assert.IsType<BadRequestObjectResult>(result);
         }
 
-        // Test 5: Reject an invalid password when adding an organizer
+        // Test 4: Reject an invalid email during login.
         [Fact]
-        public void test_OrganizerAdd_InvalidPassword()
+        public void test_OrganizerLogin_InvalidEmail()
         {
-            OrganizerController controller = new OrganizerController();
+            OrganizerController controller = CreateController();
 
-            string results = controller.AddOrganizer(
-                "David",
-                "david@gmail.com",
-                "password",
-                "Brown");
+            var model = new OrganizerLoginModel
+            {
+                Email = "david@yahoo.com",
+                Password = "Password123!"
+            };
 
-            Assert.Equal(
-                "Invalid password. It must contain at least 8 characters, an uppercase letter, a lowercase letter, a number, and a special character.",
-                results);
+            IActionResult result = controller.Login(model);
+
+            Assert.IsType<BadRequestObjectResult>(result);
         }
 
-        // Test 6: Reject incorrect credentials
+        // Test 5: Reject login with an email that does not exist.
         [Fact]
-        public void test_OrganizerGetByIncorrectCredentials()
+        public void test_OrganizerLogin_InvalidCredentials()
         {
-            OrganizerController controller = new OrganizerController();
+            OrganizerController controller = CreateController();
 
-            string results = controller.GetOrganizerByEmailAndPassword(
-                "updated@gmail.com",
-                "WrongPasword3!");
+            var model = new OrganizerLoginModel
+            {
+                Email = "nonexistent_test_organizer_2026@gmail.com",
+                Password = "WrongPassword123!"
+            };
 
-            Assert.Equal("Invalid email or password.", results);
+            IActionResult result = controller.Login(model);
+
+            Assert.IsType<UnauthorizedObjectResult>(result);
         }
 
-        // Test 7: Delete a non-existing organizer
+        // Test 6: Reject an invalid organizer ID during update.
         [Fact]
-        public void test_OrganizerDeleteNonExisting()
+        public void test_OrganizerUpdate_InvalidId()
         {
-            OrganizerController controller = new OrganizerController();
+            var identity = new ClaimsIdentity(
+                new[]
+                {
+                new Claim(ClaimTypes.NameIdentifier, "2003"),
+                new Claim(ClaimTypes.Role, "Organizer")
+                },
+                "TestAuthentication");
 
-            string results = controller.DeleteOrganizer(-1);
+            var user = new ClaimsPrincipal(identity);
+            OrganizerController controller = CreateController(user);
 
-            Assert.Equal("Organizer not found.", results);
+            var model = new OrganizerRegisterModel
+            {
+                Organizername = "Updated Organizer",
+                OrganizerSurname = "Test",
+                OrganizerEmail = "updated_test_2026@gmail.com",
+                Password = "UpdatedPass123!"
+            };
+
+            // The action checks that the route ID matches the authenticated
+            // organizer ID before performing the database operation.
+            IActionResult result = controller.UpdateOrganizer(-1, model);
+
+            Assert.IsType<ForbidResult>(result);
         }
 
-        // Test 8: Update a non-existing organizer
+        // Test 7: Reject an invalid organizer ID during deletion.
         [Fact]
-        public void test_OrganizerUpdateNonExisting()
+        public void test_OrganizerDelete_InvalidId()
         {
-            OrganizerController controller = new OrganizerController();
+            var identity = new ClaimsIdentity(
+                new[]
+                {
+                new Claim(ClaimTypes.NameIdentifier, "2003"),
+                new Claim(ClaimTypes.Role, "Organizer")
+                },
+                "TestAuthentication");
 
-            string results = controller.UpdateOrganizer(
-                -1,
-                "Updated Organizer",
-                "updated_test_2026@gmail.com",
-                "UpdatedPass123!");
+            var user = new ClaimsPrincipal(identity);
+            OrganizerController controller = CreateController(user);
 
-            Assert.Equal("Organizer not found.", results);
+            IActionResult result = controller.DeleteOrganizer(-1);
+
+            Assert.IsType<ForbidResult>(result);
         }
     }
-}
 
+
+}

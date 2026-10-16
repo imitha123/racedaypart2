@@ -1,5 +1,6 @@
-﻿
-using Xunit;
+﻿using Xunit;
+using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 using poepart2.Controllers;
 using poepart2.Model;
 
@@ -9,7 +10,8 @@ namespace Testing_Poe
     {
         private readonly EventController controller;
 
-        public EventControllerTests()
+
+    public EventControllerTests()
         {
             controller = new EventController();
         }
@@ -18,53 +20,60 @@ namespace Testing_Poe
         [Fact]
         public void test_EventGetAll()
         {
-            string result = controller.getAllEvents();
+            IActionResult result = controller.GetAllEvents();
 
-            Assert.Contains(
-                "ID: 2003, Name: Updated Chess Event, Location: Braam, Date: 27-07-12",
-                result);
+            OkObjectResult okResult = Assert.IsType<OkObjectResult>(result);
 
-            Assert.Contains(
-                "ID: 3002, Name: Testing Chess Event, Location: Braam, Date: 27-07-12",
-                result);
+            Assert.Equal(200, okResult.StatusCode);
+            Assert.NotNull(okResult.Value);
+
+            string json = JsonSerializer.Serialize(okResult.Value);
+
+            Assert.Contains("Updated Chess Event", json);
+            Assert.Contains("Testing Chess Event", json);
         }
 
         // Test 2: Get event by ID
         [Fact]
         public void test_EventGetById()
         {
-            string result = controller.getEventById(2003);
+            IActionResult result = controller.GetEventById(2003);
 
-            Assert.Equal(
-                "ID: 2003, Name: Updated Chess Event, Location: Braam, Date: 27-07-12",
-                result.Trim());
+            OkObjectResult okResult = Assert.IsType<OkObjectResult>(result);
+
+            Assert.Equal(200, okResult.StatusCode);
+
+            string json = JsonSerializer.Serialize(okResult.Value);
+
+            Assert.Contains("Updated Chess Event", json);
+            Assert.Contains("Braam", json);
         }
 
-        // Test 3: Get event using a non-existing ID
+        // Test 3: Get event using an invalid ID
         [Fact]
         public void test_EventGetByInvalidId()
         {
-            string result = controller.getEventById(-1);
+            IActionResult result = controller.GetEventById(-1);
 
-            Assert.Equal("Event not found.", result);
+            Assert.IsType<BadRequestObjectResult>(result);
         }
 
-        // Test 4: Add an event
+        // Test 4: Add an event with invalid data
         [Fact]
-        public void test_AddEvent()
+        public void test_AddEvent_InvalidData()
         {
             EventModel newEvent = new EventModel
             {
-                EventName = "Testing Chess Event",
+                EventName = "",
                 EventLocation = "Braam",
                 EventDate = "27-07-12",
                 categoryID = 1003,
                 organizerID = 2003
             };
 
-            string result = controller.addEvent(newEvent);
+            IActionResult result = controller.AddEvent(newEvent);
 
-            Assert.Equal("Event added successfully.", result);
+            Assert.IsType<BadRequestObjectResult>(result);
         }
 
         // Test 5: Update a non-existing event
@@ -80,19 +89,20 @@ namespace Testing_Poe
                 organizerID = 2003
             };
 
-            string result = controller.updateEvent(-1, updatedEvent);
+            IActionResult result = controller.UpdateEvent(-1, updatedEvent);
 
-            Assert.Equal("Event not found.", result);
+            Assert.IsType<BadRequestObjectResult>(result);
         }
 
         // Test 6: Delete a non-existing event
         [Fact]
         public void test_DeleteNonExistingEvent()
         {
-            string result = controller.deleteEvent(-1);
+            IActionResult result = controller.DeleteEvent(-1);
 
-            Assert.Equal("Event not found.", result);
+            Assert.IsType<BadRequestObjectResult>(result);
         }
     }
-}
 
+
+}
