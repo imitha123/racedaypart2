@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using poepart2.Model;
@@ -16,238 +18,402 @@ namespace poepart2.Controllers
     // GET: api/Event
     // Get all events
     [HttpGet]
-        public string getAllEvents()
+        [AllowAnonymous]
+        public IActionResult GetAllEvents()
         {
-            string message = "";
-
             try
             {
-                using SqlConnection connection =
-                    new SqlConnection(connectionString);
-
+                using SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query = "SELECT * FROM Event_";
+                string query = @"
+                SELECT eventId, eventName, eventLocation, eventDate,
+                       categoryID, organizerID
+                FROM Event_";
 
-                using SqlCommand command =
-                    new SqlCommand(query, connection);
-
+                using SqlCommand command = new SqlCommand(query, connection);
                 using SqlDataReader reader = command.ExecuteReader();
+
+                var events = new List<object>();
 
                 while (reader.Read())
                 {
-                    int id = reader.GetInt32(0);
-                    string name = reader.GetString(1);
-                    string location = reader.GetString(2);
-                    string date = reader.GetValue(3).ToString();
-
-                    message +=
-                        $"ID: {id}, Name: {name}, Location: {location}, Date: {date}\n";
+                    events.Add(new
+                    {
+                        EventID = reader.GetInt32(0),
+                        EventName = reader.GetString(1).Trim(),
+                        EventLocation = reader.GetString(2).Trim(),
+                        EventDate = reader.GetValue(3),
+                        CategoryID = reader.GetInt32(4),
+                        OrganizerID = reader.GetInt32(5)
+                    });
                 }
-            }
-            catch (Exception error)
-            {
-                message = error.Message;
-            }
 
-            return message;
+                return Ok(events);
+            }
+            catch (SqlException)
+            {
+                return StatusCode(500, new
+                {
+                    message = "A database error occurred while retrieving events."
+                });
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, new
+                {
+                    message = "An unexpected error occurred while retrieving events."
+                });
+            }
         }
 
         // GET: api/Event/1
         // Get event by ID
-        [HttpGet("{id}")]
-        public string getEventById([FromRoute] int id)
+        [HttpGet("{id:int}")]
+        [AllowAnonymous]
+        public IActionResult GetEventById(int id)
         {
-            string message = "";
+            if (id <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Event ID must be greater than zero."
+                });
+            }
 
             try
             {
-                using SqlConnection connection =
-                    new SqlConnection(connectionString);
-
+                using SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query =
-                    "SELECT * FROM Event_ WHERE eventId = @id";
+                string query = @"
+                SELECT eventId, eventName, eventLocation, eventDate,
+                       categoryID, organizerID
+                FROM Event_
+                WHERE eventId = @id";
 
-                using SqlCommand command =
-                    new SqlCommand(query, connection);
-
+                using SqlCommand command = new SqlCommand(query, connection);
                 command.Parameters.AddWithValue("@id", id);
 
                 using SqlDataReader reader = command.ExecuteReader();
 
-                if (reader.Read())
+                if (!reader.Read())
                 {
-                    int eventId = reader.GetInt32(0);
-                    string name = reader.GetString(1);
-                    string location = reader.GetString(2);
-                    string date = reader.GetValue(3).ToString();
+                    return NotFound(new
+                    {
+                        message = "Event not found."
+                    });
+                }
 
-                    message =
-                        $"ID: {eventId}, Name: {name}, Location: {location}, Date: {date}";
-                }
-                else
+                var eventDetails = new
                 {
-                    message = "Event not found.";
-                }
+                    EventID = reader.GetInt32(0),
+                    EventName = reader.GetString(1).Trim(),
+                    EventLocation = reader.GetString(2).Trim(),
+                    EventDate = reader.GetValue(3),
+                    CategoryID = reader.GetInt32(4),
+                    OrganizerID = reader.GetInt32(5)
+                };
+
+                return Ok(eventDetails);
             }
-            catch (Exception error)
+            catch (SqlException)
             {
-                message = error.Message;
+                return StatusCode(500, new
+                {
+                    message = "A database error occurred while retrieving the event."
+                });
             }
-
-            return message;
+            catch (Exception)
+            {
+                return StatusCode(500, new
+                {
+                    message = "An unexpected error occurred while retrieving the event."
+                });
+            }
         }
 
         // POST: api/Event
         // Add event
         [HttpPost]
-        public string addEvent([FromBody] EventModel newEvent)
+        [Authorize(Roles = "Organizer")]
+        public IActionResult AddEvent([FromBody] EventModel newEvent)
         {
-            if (newEvent == null)
+            if (newEvent == null ||
+                string.IsNullOrWhiteSpace(newEvent.EventName) ||
+                string.IsNullOrWhiteSpace(newEvent.EventLocation) ||
+                newEvent.categoryID <= 0 ||
+                newEvent.organizerID <= 0)
             {
-                return "Invalid event details.";
+                return BadRequest(new
+                {
+                    message = "Valid event name, location, category ID and organizer ID are required."
+                });
             }
 
-            string message = "";
+            if (!DateTime.TryParse(
+                    Convert.ToString(newEvent.EventDate),
+                    out DateTime parsedEventDate))
+            {
+                return BadRequest(new
+                {
+                    message = "A valid event date is required."
+                });
+            }
 
             try
             {
-                using SqlConnection connection =
-                    new SqlConnection(connectionString);
-
+                using SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query =
-                    "INSERT INTO Event_ (eventName, eventLocation, eventDate, categoryID, organizerID) " +
-                    "VALUES (@name, @location, @date, @categoryID, @organizerID)";
+                // Confirm that the category exists.
+                string categoryQuery = @"
+                SELECT COUNT(*)
+                FROM Category
+                WHERE categoryID = @categoryID";
 
-                using SqlCommand command =
-                    new SqlCommand(query, connection);
+                using SqlCommand categoryCommand =
+                    new SqlCommand(categoryQuery, connection);
 
-                command.Parameters.AddWithValue(
-                    "@name", newEvent.EventName);
-
-                command.Parameters.AddWithValue(
-                    "@location", newEvent.EventLocation);
-
-                command.Parameters.AddWithValue(
-                    "@date", newEvent.EventDate);
-
-                command.Parameters.AddWithValue(
+                categoryCommand.Parameters.AddWithValue(
                     "@categoryID", newEvent.categoryID);
 
-                command.Parameters.AddWithValue(
+                if ((int)categoryCommand.ExecuteScalar()! == 0)
+                {
+                    return BadRequest(new
+                    {
+                        message = "The specified category does not exist."
+                    });
+                }
+
+                // Confirm that the organizer exists.
+                string organizerQuery = @"
+                SELECT COUNT(*)
+                FROM Organizer
+                WHERE organizerID = @organizerID";
+
+                using SqlCommand organizerCommand =
+                    new SqlCommand(organizerQuery, connection);
+
+                organizerCommand.Parameters.AddWithValue(
                     "@organizerID", newEvent.organizerID);
 
-                int rowsAffected = command.ExecuteNonQuery();
+                if ((int)organizerCommand.ExecuteScalar()! == 0)
+                {
+                    return BadRequest(new
+                    {
+                        message = "The specified organizer does not exist."
+                    });
+                }
 
-                message = rowsAffected > 0
-                    ? "Event added successfully."
-                    : "Failed to add event.";
+                string query = @"
+                INSERT INTO Event_
+                    (eventName, eventLocation, eventDate, categoryID, organizerID)
+                VALUES
+                    (@name, @location, @date, @categoryID, @organizerID);
+
+                SELECT CAST(SCOPE_IDENTITY() AS INT);";
+
+                using SqlCommand command = new SqlCommand(query, connection);
+
+                command.Parameters.AddWithValue("@name", newEvent.EventName.Trim());
+                command.Parameters.AddWithValue("@location", newEvent.EventLocation.Trim());
+                command.Parameters.AddWithValue("@date", parsedEventDate);
+                command.Parameters.AddWithValue("@categoryID", newEvent.categoryID);
+                command.Parameters.AddWithValue("@organizerID", newEvent.organizerID);
+
+                int eventId = (int)command.ExecuteScalar()!;
+
+                return CreatedAtAction(
+                    nameof(GetEventById),
+                    new { id = eventId },
+                    new
+                    {
+                        EventID = eventId,
+                        EventName = newEvent.EventName.Trim(),
+                        EventLocation = newEvent.EventLocation.Trim(),
+                        EventDate = parsedEventDate,
+                        CategoryID = newEvent.categoryID,
+                        OrganizerID = newEvent.organizerID,
+                        Message = "Event added successfully."
+                    });
             }
-            catch (Exception error)
+            catch (SqlException)
             {
-                message = error.Message;
+                return StatusCode(500, new
+                {
+                    message = "A database error occurred while adding the event."
+                });
             }
-
-            return message;
+            catch (Exception)
+            {
+                return StatusCode(500, new
+                {
+                    message = "An unexpected error occurred while adding the event."
+                });
+            }
         }
 
         // PUT: api/Event/1
-        // Update event by ID using the ID in the URL
-        [HttpPut("{id}")]
-        public string updateEvent(
-            [FromRoute] int id,
+        // Update event by ID
+        [HttpPut("{id:int}")]
+        [Authorize(Roles = "Organizer")]
+        public IActionResult UpdateEvent(
+            int id,
             [FromBody] EventModel updatedEvent)
         {
-            if (updatedEvent == null)
+            if (id <= 0)
             {
-                return "Invalid event details.";
+                return BadRequest(new
+                {
+                    message = "Event ID must be greater than zero."
+                });
             }
 
-            string message = "";
+            if (updatedEvent == null ||
+                string.IsNullOrWhiteSpace(updatedEvent.EventName) ||
+                string.IsNullOrWhiteSpace(updatedEvent.EventLocation))
+            {
+                return BadRequest(new
+                {
+                    message = "Valid event name and location are required."
+                });
+            }
+
+            if (!DateTime.TryParse(
+                    Convert.ToString(updatedEvent.EventDate),
+                    out DateTime parsedEventDate))
+            {
+                return BadRequest(new
+                {
+                    message = "A valid event date is required."
+                });
+            }
 
             try
             {
-                using SqlConnection connection =
-                    new SqlConnection(connectionString);
-
+                using SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query =
-                    "UPDATE Event_ SET " +
-                    "eventName = @name, " +
-                    "eventLocation = @location, " +
-                    "eventDate = @date " +
-                    "WHERE eventId = @id";
+                // Confirm that the event exists.
+                string existsQuery = @"
+                SELECT COUNT(*)
+                FROM Event_
+                WHERE eventId = @id";
 
-                using SqlCommand command =
-                    new SqlCommand(query, connection);
+                using SqlCommand existsCommand =
+                    new SqlCommand(existsQuery, connection);
 
-                command.Parameters.AddWithValue(
-                    "@id", id);
+                existsCommand.Parameters.AddWithValue("@id", id);
 
-                command.Parameters.AddWithValue(
-                    "@name", updatedEvent.EventName);
+                if ((int)existsCommand.ExecuteScalar()! == 0)
+                {
+                    return NotFound(new
+                    {
+                        message = "Event not found."
+                    });
+                }
 
-                command.Parameters.AddWithValue(
-                    "@location", updatedEvent.EventLocation);
+                string query = @"
+                UPDATE Event_
+                SET eventName = @name,
+                    eventLocation = @location,
+                    eventDate = @date
+                WHERE eventId = @id";
 
-                command.Parameters.AddWithValue(
-                    "@date", updatedEvent.EventDate);
+                using SqlCommand command = new SqlCommand(query, connection);
+
+                command.Parameters.AddWithValue("@id", id);
+                command.Parameters.AddWithValue("@name", updatedEvent.EventName.Trim());
+                command.Parameters.AddWithValue("@location", updatedEvent.EventLocation.Trim());
+                command.Parameters.AddWithValue("@date", parsedEventDate);
 
                 int rowsAffected = command.ExecuteNonQuery();
 
-                message = rowsAffected > 0
-                    ? "Event updated successfully."
-                    : "Event not found.";
+                if (rowsAffected == 0)
+                {
+                    return NotFound(new
+                    {
+                        message = "Event not found."
+                    });
+                }
+
+                return Ok(new
+                {
+                    message = "Event updated successfully."
+                });
             }
-            catch (Exception error)
+            catch (SqlException)
             {
-                message = error.Message;
+                return StatusCode(500, new
+                {
+                    message = "A database error occurred while updating the event."
+                });
             }
-
-            return message;
+            catch (Exception)
+            {
+                return StatusCode(500, new
+                {
+                    message = "An unexpected error occurred while updating the event."
+                });
+            }
         }
-
-       
 
         // DELETE: api/Event/1
         // Delete event by ID
-        [HttpDelete("{eventId}")]
-        public string deleteEvent([FromRoute] int eventId)
+        [HttpDelete("{eventId:int}")]
+        [Authorize(Roles = "Organizer")]
+        public IActionResult DeleteEvent(int eventId)
         {
-            string message = "";
+            if (eventId <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Event ID must be greater than zero."
+                });
+            }
 
             try
             {
-                using SqlConnection connection =
-                    new SqlConnection(connectionString);
-
+                using SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query =
-                    "DELETE FROM Event_ WHERE eventId = @id";
+                string query = @"
+                DELETE FROM Event_
+                WHERE eventId = @id";
 
-                using SqlCommand command =
-                    new SqlCommand(query, connection);
-
+                using SqlCommand command = new SqlCommand(query, connection);
                 command.Parameters.AddWithValue("@id", eventId);
 
                 int rowsAffected = command.ExecuteNonQuery();
 
-                message = rowsAffected > 0
-                    ? "Event deleted successfully."
-                    : "Event not found.";
-            }
-            catch (Exception error)
-            {
-                message = error.Message;
-            }
+                if (rowsAffected == 0)
+                {
+                    return NotFound(new
+                    {
+                        message = "Event not found."
+                    });
+                }
 
-            return message;
+                return Ok(new
+                {
+                    message = "Event deleted successfully."
+                });
+            }
+            catch (SqlException)
+            {
+                return Conflict(new
+                {
+                    message = "The event could not be deleted. It may be referenced by enrollments or results."
+                });
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, new
+                {
+                    message = "An unexpected error occurred while deleting the event."
+                });
+            }
         }
     }
 

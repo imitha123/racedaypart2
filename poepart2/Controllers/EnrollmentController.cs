@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 
@@ -15,214 +16,470 @@ namespace poepart2.Controllers
     // GET: api/Enrollment
     // Get all enrollments
     [HttpGet]
-        public string getAllEnrollments()
+        public IActionResult GetAllEnrollments()
         {
-            string message = "";
-
             try
             {
-                using SqlConnection connection =
-                    new SqlConnection(connectionString);
-
+                using SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query = "SELECT * FROM Enrollment";
+                string query = @"
+                SELECT EventID, ParticipantID
+                FROM Enrollment";
 
-                using SqlCommand command =
-                    new SqlCommand(query, connection);
-
+                using SqlCommand command = new SqlCommand(query, connection);
                 using SqlDataReader reader = command.ExecuteReader();
+
+                var enrollments = new List<object>();
 
                 while (reader.Read())
                 {
-                    int eventId = reader.GetInt32(0);
-                    int participantId = reader.GetInt32(1);
-
-                    message +=
-                        $"EventID: {eventId}, ParticipantID: {participantId}\n";
+                    enrollments.Add(new
+                    {
+                        EventID = reader.GetInt32(0),
+                        ParticipantID = reader.GetInt32(1)
+                    });
                 }
-            }
-            catch (Exception error)
-            {
-                message = error.Message;
-            }
 
-            return message;
+                return Ok(enrollments);
+            }
+            catch (SqlException)
+            {
+                return StatusCode(500, new
+                {
+                    message = "A database error occurred while retrieving enrollments."
+                });
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, new
+                {
+                    message = "An unexpected error occurred while retrieving enrollments."
+                });
+            }
         }
 
         // GET: api/Enrollment/1/2
-        // Get enrollment by event ID and participant ID
-        [HttpGet("{eventId}/{participantId}")]
-        public string getEnrollment(
-            [FromRoute] int eventId,
-            [FromRoute] int participantId)
+        // Get an enrollment by event ID and participant ID
+        [HttpGet("{eventId:int}/{participantId:int}")]
+        public IActionResult GetEnrollment(int eventId, int participantId)
         {
-            string message = "";
+            if (eventId <= 0 || participantId <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Event ID and participant ID must be greater than zero."
+                });
+            }
 
             try
             {
-                using SqlConnection connection =
-                    new SqlConnection(connectionString);
-
+                using SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query =
-                    "SELECT * FROM Enrollment " +
-                    "WHERE EventID = @eventId AND ParticipantID = @participantId";
+                string query = @"
+                SELECT EventID, ParticipantID
+                FROM Enrollment
+                WHERE EventID = @eventId
+                AND ParticipantID = @participantId";
 
-                using SqlCommand command =
-                    new SqlCommand(query, connection);
+                using SqlCommand command = new SqlCommand(query, connection);
 
                 command.Parameters.AddWithValue("@eventId", eventId);
                 command.Parameters.AddWithValue("@participantId", participantId);
 
                 using SqlDataReader reader = command.ExecuteReader();
 
-                if (reader.Read())
+                if (!reader.Read())
                 {
-                    int enrollmentEventId = reader.GetInt32(0);
-                    int enrollmentParticipantId = reader.GetInt32(1);
+                    return NotFound(new
+                    {
+                        message = "Enrollment not found."
+                    });
+                }
 
-                    message =
-                        $"EventID: {enrollmentEventId}, ParticipantID: {enrollmentParticipantId}";
-                }
-                else
+                var enrollment = new
                 {
-                    message = "Enrollment not found.";
-                }
+                    EventID = reader.GetInt32(0),
+                    ParticipantID = reader.GetInt32(1)
+                };
+
+                return Ok(enrollment);
             }
-            catch (Exception error)
+            catch (SqlException)
             {
-                message = error.Message;
+                return StatusCode(500, new
+                {
+                    message = "A database error occurred while retrieving the enrollment."
+                });
             }
-
-            return message;
+            catch (Exception)
+            {
+                return StatusCode(500, new
+                {
+                    message = "An unexpected error occurred while retrieving the enrollment."
+                });
+            }
         }
 
         // POST: api/Enrollment?eventId=1&participantId=2
-        // Add enrollment
+        // Add an enrollment
         [HttpPost]
-        public string addEnrollment(
+        public IActionResult AddEnrollment(
             [FromQuery] int eventId,
             [FromQuery] int participantId)
         {
-            string message = "";
+            if (eventId <= 0 || participantId <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Event ID and participant ID must be greater than zero."
+                });
+            }
 
             try
             {
-                using SqlConnection connection =
-                    new SqlConnection(connectionString);
-
+                using SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query =
-                    "INSERT INTO Enrollment (EventID, ParticipantID) " +
-                    "VALUES (@eventId, @participantId)";
+                // Check whether the event exists.
+                string eventQuery = @"
+                SELECT COUNT(*)
+                FROM Event
+                WHERE EventID = @eventId";
 
-                using SqlCommand command =
-                    new SqlCommand(query, connection);
+                using SqlCommand eventCommand =
+                    new SqlCommand(eventQuery, connection);
 
-                command.Parameters.AddWithValue("@eventId", eventId);
-                command.Parameters.AddWithValue("@participantId", participantId);
+                eventCommand.Parameters.AddWithValue("@eventId", eventId);
 
-                int rowsAffected = command.ExecuteNonQuery();
+                int eventExists = (int)eventCommand.ExecuteScalar()!;
 
-                message = rowsAffected > 0
-                    ? "Enrollment added successfully."
-                    : "Enrollment could not be added.";
+                if (eventExists == 0)
+                {
+                    return BadRequest(new
+                    {
+                        message = "The specified event does not exist."
+                    });
+                }
+
+                // Check whether the participant exists.
+                string participantQuery = @"
+                SELECT COUNT(*)
+                FROM Participant
+                WHERE participantID = @participantId";
+
+                using SqlCommand participantCommand =
+                    new SqlCommand(participantQuery, connection);
+
+                participantCommand.Parameters.AddWithValue(
+                    "@participantId", participantId);
+
+                int participantExists =
+                    (int)participantCommand.ExecuteScalar()!;
+
+                if (participantExists == 0)
+                {
+                    return BadRequest(new
+                    {
+                        message = "The specified participant does not exist."
+                    });
+                }
+
+                // Prevent duplicate enrollments.
+                string duplicateQuery = @"
+                SELECT COUNT(*)
+                FROM Enrollment
+                WHERE EventID = @eventId
+                AND ParticipantID = @participantId";
+
+                using SqlCommand duplicateCommand =
+                    new SqlCommand(duplicateQuery, connection);
+
+                duplicateCommand.Parameters.AddWithValue("@eventId", eventId);
+                duplicateCommand.Parameters.AddWithValue("@participantId", participantId);
+
+                int duplicateExists =
+                    (int)duplicateCommand.ExecuteScalar()!;
+
+                if (duplicateExists > 0)
+                {
+                    return Conflict(new
+                    {
+                        message = "This participant is already enrolled in this event."
+                    });
+                }
+
+                string insertQuery = @"
+                INSERT INTO Enrollment (EventID, ParticipantID)
+                VALUES (@eventId, @participantId)";
+
+                using SqlCommand insertCommand =
+                    new SqlCommand(insertQuery, connection);
+
+                insertCommand.Parameters.AddWithValue("@eventId", eventId);
+                insertCommand.Parameters.AddWithValue("@participantId", participantId);
+
+                int rowsAffected = insertCommand.ExecuteNonQuery();
+
+                if (rowsAffected > 0)
+                {
+                    return CreatedAtAction(
+                        nameof(GetEnrollment),
+                        new { eventId, participantId },
+                        new
+                        {
+                            EventID = eventId,
+                            ParticipantID = participantId,
+                            Message = "Enrollment added successfully."
+                        });
+                }
+
+                return StatusCode(500, new
+                {
+                    message = "Enrollment could not be added."
+                });
             }
-            catch (Exception error)
+            catch (SqlException)
             {
-                message = error.Message;
+                return StatusCode(500, new
+                {
+                    message = "A database error occurred while adding the enrollment."
+                });
             }
-
-            return message;
+            catch (Exception)
+            {
+                return StatusCode(500, new
+                {
+                    message = "An unexpected error occurred while adding the enrollment."
+                });
+            }
         }
 
         // PUT: api/Enrollment/1/2?newEventId=3&newParticipantId=4
-        // Update enrollment IDs
-        [HttpPut("{eventId}/{participantId}")]
-        public string updateEnrollment(
-            [FromRoute] int eventId,
-            [FromRoute] int participantId,
+        // Update an enrollment
+        [HttpPut("{eventId:int}/{participantId:int}")]
+        public IActionResult UpdateEnrollment(
+            int eventId,
+            int participantId,
             [FromQuery] int newEventId,
             [FromQuery] int newParticipantId)
         {
-            string message = "";
+            if (eventId <= 0 || participantId <= 0 ||
+                newEventId <= 0 || newParticipantId <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "All event and participant IDs must be greater than zero."
+                });
+            }
 
             try
             {
-                using SqlConnection connection =
-                    new SqlConnection(connectionString);
-
+                using SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query =
-                    "UPDATE Enrollment " +
-                    "SET EventID = @newEventId, ParticipantID = @newParticipantId " +
-                    "WHERE EventID = @eventId AND ParticipantID = @participantId";
+                // Check that the original enrollment exists.
+                string existingQuery = @"
+                SELECT COUNT(*)
+                FROM Enrollment
+                WHERE EventID = @eventId
+                AND ParticipantID = @participantId";
 
-                using SqlCommand command =
-                    new SqlCommand(query, connection);
+                using SqlCommand existingCommand =
+                    new SqlCommand(existingQuery, connection);
 
-                command.Parameters.AddWithValue("@eventId", eventId);
-                command.Parameters.AddWithValue("@participantId", participantId);
-                command.Parameters.AddWithValue("@newEventId", newEventId);
-                command.Parameters.AddWithValue("@newParticipantId", newParticipantId);
+                existingCommand.Parameters.AddWithValue("@eventId", eventId);
+                existingCommand.Parameters.AddWithValue("@participantId", participantId);
 
-                int rowsAffected = command.ExecuteNonQuery();
+                int enrollmentExists =
+                    (int)existingCommand.ExecuteScalar()!;
 
-                message = rowsAffected > 0
-                    ? "Enrollment updated successfully."
-                    : "Enrollment not found.";
+                if (enrollmentExists == 0)
+                {
+                    return NotFound(new
+                    {
+                        message = "The enrollment to update was not found."
+                    });
+                }
+
+                // Check that the new event exists.
+                string eventQuery = @"
+                SELECT COUNT(*)
+                FROM Event
+                WHERE EventID = @newEventId";
+
+                using SqlCommand eventCommand =
+                    new SqlCommand(eventQuery, connection);
+
+                eventCommand.Parameters.AddWithValue("@newEventId", newEventId);
+
+                if ((int)eventCommand.ExecuteScalar()! == 0)
+                {
+                    return BadRequest(new
+                    {
+                        message = "The specified new event does not exist."
+                    });
+                }
+
+                // Check that the new participant exists.
+                string participantQuery = @"
+                SELECT COUNT(*)
+                FROM Participant
+                WHERE participantID = @newParticipantId";
+
+                using SqlCommand participantCommand =
+                    new SqlCommand(participantQuery, connection);
+
+                participantCommand.Parameters.AddWithValue(
+                    "@newParticipantId", newParticipantId);
+
+                if ((int)participantCommand.ExecuteScalar()! == 0)
+                {
+                    return BadRequest(new
+                    {
+                        message = "The specified new participant does not exist."
+                    });
+                }
+
+                // Prevent a duplicate composite key.
+                string duplicateQuery = @"
+                SELECT COUNT(*)
+                FROM Enrollment
+                WHERE EventID = @newEventId
+                AND ParticipantID = @newParticipantId
+                AND NOT (
+                    EventID = @eventId
+                    AND ParticipantID = @participantId
+                )";
+
+                using SqlCommand duplicateCommand =
+                    new SqlCommand(duplicateQuery, connection);
+
+                duplicateCommand.Parameters.AddWithValue("@newEventId", newEventId);
+                duplicateCommand.Parameters.AddWithValue(
+                    "@newParticipantId", newParticipantId);
+                duplicateCommand.Parameters.AddWithValue("@eventId", eventId);
+                duplicateCommand.Parameters.AddWithValue(
+                    "@participantId", participantId);
+
+                if ((int)duplicateCommand.ExecuteScalar()! > 0)
+                {
+                    return Conflict(new
+                    {
+                        message = "The participant is already enrolled in the specified event."
+                    });
+                }
+
+                string updateQuery = @"
+                UPDATE Enrollment
+                SET EventID = @newEventId,
+                    ParticipantID = @newParticipantId
+                WHERE EventID = @eventId
+                AND ParticipantID = @participantId";
+
+                using SqlCommand updateCommand =
+                    new SqlCommand(updateQuery, connection);
+
+                updateCommand.Parameters.AddWithValue("@newEventId", newEventId);
+                updateCommand.Parameters.AddWithValue(
+                    "@newParticipantId", newParticipantId);
+                updateCommand.Parameters.AddWithValue("@eventId", eventId);
+                updateCommand.Parameters.AddWithValue(
+                    "@participantId", participantId);
+
+                int rowsAffected = updateCommand.ExecuteNonQuery();
+
+                if (rowsAffected > 0)
+                {
+                    return Ok(new
+                    {
+                        EventID = newEventId,
+                        ParticipantID = newParticipantId,
+                        Message = "Enrollment updated successfully."
+                    });
+                }
+
+                return NotFound(new
+                {
+                    message = "Enrollment not found."
+                });
             }
-            catch (Exception error)
+            catch (SqlException)
             {
-                message = error.Message;
+                return StatusCode(500, new
+                {
+                    message = "A database error occurred while updating the enrollment."
+                });
             }
-
-            return message;
+            catch (Exception)
+            {
+                return StatusCode(500, new
+                {
+                    message = "An unexpected error occurred while updating the enrollment."
+                });
+            }
         }
 
         // DELETE: api/Enrollment/1/2
-        // Delete enrollment by event ID and participant ID
-        [HttpDelete("{eventId}/{participantId}")]
-        public string deleteEnrollment(
-            [FromRoute] int eventId,
-            [FromRoute] int participantId)
+        // Delete an enrollment
+        [HttpDelete("{eventId:int}/{participantId:int}")]
+        public IActionResult DeleteEnrollment(int eventId, int participantId)
         {
-            string message = "";
+            if (eventId <= 0 || participantId <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Event ID and participant ID must be greater than zero."
+                });
+            }
 
             try
             {
-                using SqlConnection connection =
-                    new SqlConnection(connectionString);
-
+                using SqlConnection connection = new SqlConnection(connectionString);
                 connection.Open();
 
-                string query =
-                    "DELETE FROM Enrollment " +
-                    "WHERE EventID = @eventId AND ParticipantID = @participantId";
+                string query = @"
+                DELETE FROM Enrollment
+                WHERE EventID = @eventId
+                AND ParticipantID = @participantId";
 
-                using SqlCommand command =
-                    new SqlCommand(query, connection);
+                using SqlCommand command = new SqlCommand(query, connection);
 
                 command.Parameters.AddWithValue("@eventId", eventId);
                 command.Parameters.AddWithValue("@participantId", participantId);
 
                 int rowsAffected = command.ExecuteNonQuery();
 
-                message = rowsAffected > 0
-                    ? "Enrollment deleted successfully."
-                    : "Enrollment not found.";
-            }
-            catch (Exception error)
-            {
-                message = error.Message;
-            }
+                if (rowsAffected == 0)
+                {
+                    return NotFound(new
+                    {
+                        message = "Enrollment not found."
+                    });
+                }
 
-            return message;
+                return Ok(new
+                {
+                    message = "Enrollment deleted successfully."
+                });
+            }
+            catch (SqlException)
+            {
+                return StatusCode(500, new
+                {
+                    message = "A database error occurred while deleting the enrollment."
+                });
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, new
+                {
+                    message = "An unexpected error occurred while deleting the enrollment."
+                });
+            }
         }
     }
+
 
 }

@@ -9,16 +9,13 @@ namespace poepart2.Controllers
     public class CategoryController : ControllerBase
     {
         private readonly string connectionString =
-        @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
+            @"Data Source=(localdb)\api_endpoints;Database=raceday;Trusted_Connection=True;";
 
-
-    // GET: api/Category
-    // Get all categories
-    [HttpGet]
-        public string getAllCategories()
+        // GET: api/Category
+        // Get all categories
+        [HttpGet]
+        public IActionResult GetAllCategories()
         {
-            string message = "";
-
             try
             {
                 using SqlConnection connection =
@@ -26,37 +23,50 @@ namespace poepart2.Controllers
 
                 connection.Open();
 
-                string query = "SELECT * FROM Category";
+                string query =
+                    "SELECT categoryID, categoryName, categoryDescription " +
+                    "FROM Category";
 
                 using SqlCommand command =
                     new SqlCommand(query, connection);
 
                 using SqlDataReader reader = command.ExecuteReader();
 
+                var categories = new System.Collections.Generic.List<object>();
+
                 while (reader.Read())
                 {
-                    int id = reader.GetInt32(0);
-                    string name = reader.GetString(1);
-                    string description = reader.GetString(2);
-
-                    message +=
-                        $"ID: {id}, Name: {name}, Description: {description}\n";
+                    categories.Add(new
+                    {
+                        categoryID = reader.GetInt32(0),
+                        categoryName = reader.GetString(1).Trim(),
+                        categoryDescription = reader.GetString(2).Trim()
+                    });
                 }
-            }
-            catch (Exception error)
-            {
-                message = error.Message;
-            }
 
-            return message;
+                return Ok(categories);
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, new
+                {
+                    message = "An error occurred while retrieving categories."
+                });
+            }
         }
 
         // GET: api/Category/1
         // Get category by ID
-        [HttpGet("{id}")]
-        public string getCategory(int id)
+        [HttpGet("{id:int}")]
+        public IActionResult GetCategory(int id)
         {
-            string message = "";
+            if (id <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Category ID must be greater than zero."
+                });
+            }
 
             try
             {
@@ -66,7 +76,8 @@ namespace poepart2.Controllers
                 connection.Open();
 
                 string query =
-                    "SELECT * FROM Category WHERE categoryId = @id";
+                    "SELECT categoryID, categoryName, categoryDescription " +
+                    "FROM Category WHERE categoryID = @id";
 
                 using SqlCommand command =
                     new SqlCommand(query, connection);
@@ -75,34 +86,47 @@ namespace poepart2.Controllers
 
                 using SqlDataReader reader = command.ExecuteReader();
 
-                if (reader.Read())
+                if (!reader.Read())
                 {
-                    int categoryId = reader.GetInt32(0);
-                    string categoryName = reader.GetString(1);
-                    string categoryDescription = reader.GetString(2);
+                    return NotFound(new
+                    {
+                        message = "Category not found."
+                    });
+                }
 
-                    message =
-                        $"ID: {categoryId}, Name: {categoryName}, Description: {categoryDescription}";
-                }
-                else
+                var category = new
                 {
-                    message = "Category not found.";
-                }
+                    categoryID = reader.GetInt32(0),
+                    categoryName = reader.GetString(1).Trim(),
+                    categoryDescription = reader.GetString(2).Trim()
+                };
+
+                return Ok(category);
             }
-            catch (Exception error)
+            catch (Exception)
             {
-                message = error.Message;
+                return StatusCode(500, new
+                {
+                    message = "An error occurred while retrieving the category."
+                });
             }
-
-            return message;
         }
 
         // POST: api/Category
         // Add category
         [HttpPost]
-        public string addCategory(string name, string description)
+        public IActionResult AddCategory(
+            [FromBody] CategoryRequest request)
         {
-            string message = "";
+            if (request == null ||
+                string.IsNullOrWhiteSpace(request.Name) ||
+                string.IsNullOrWhiteSpace(request.Description))
+            {
+                return BadRequest(new
+                {
+                    message = "Category name and description are required."
+                });
+            }
 
             try
             {
@@ -112,74 +136,65 @@ namespace poepart2.Controllers
                 connection.Open();
 
                 string query =
-                    "INSERT INTO Category (categoryName, categoryDescription) " +
-                    "VALUES (@name, @description)";
+                    "INSERT INTO Category " +
+                    "(categoryName, categoryDescription) " +
+                    "VALUES (@name, @description); " +
+                    "SELECT CAST(SCOPE_IDENTITY() AS INT);";
 
                 using SqlCommand command =
                     new SqlCommand(query, connection);
 
-                command.Parameters.AddWithValue("@name", name);
-                command.Parameters.AddWithValue("@description", description);
+                command.Parameters.AddWithValue(
+                    "@name", request.Name.Trim());
 
-                int rowsAffected = command.ExecuteNonQuery();
+                command.Parameters.AddWithValue(
+                    "@description", request.Description.Trim());
 
-                message = rowsAffected > 0
-                    ? "Category added successfully."
-                    : "Failed to add category.";
+                int categoryId = (int)command.ExecuteScalar()!;
+
+                return CreatedAtAction(
+                    nameof(GetCategory),
+                    new { id = categoryId },
+                    new
+                    {
+                        categoryID = categoryId,
+                        categoryName = request.Name.Trim(),
+                        categoryDescription = request.Description.Trim()
+                    });
             }
-            catch (Exception error)
+            catch (Exception)
             {
-                message = error.Message;
+                return StatusCode(500, new
+                {
+                    message = "An error occurred while adding the category."
+                });
             }
-
-            return message;
-        }
-
-        // DELETE: api/Category/1
-        // Delete category
-        [HttpDelete("{id}")]
-        public string deleteCategory(int id)
-        {
-            string message = "";
-
-            try
-            {
-                using SqlConnection connection =
-                    new SqlConnection(connectionString);
-
-                connection.Open();
-
-                string query =
-                    "DELETE FROM Category WHERE categoryId = @id";
-
-                using SqlCommand command =
-                    new SqlCommand(query, connection);
-
-                command.Parameters.AddWithValue("@id", id);
-
-                int rowsAffected = command.ExecuteNonQuery();
-
-                message = rowsAffected > 0
-                    ? "Category deleted successfully."
-                    : "Category not found.";
-            }
-            catch (Exception error)
-            {
-                message = error.Message;
-            }
-
-            return message;
         }
 
         // PUT: api/Category/1
         // Update category
-        [HttpPut("{id}")]
-        public string updateCategory(
+        [HttpPut("{id:int}")]
+        public IActionResult UpdateCategory(
             int id,
-            string name,
-            string description)
+            [FromBody] CategoryRequest request)
         {
-            string message = "";
+            if (id <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Category ID must be greater than zero."
+                });
+            }
+
+            if (request == null ||
+                string.IsNullOrWhiteSpace(request.Name) ||
+                string.IsNullOrWhiteSpace(request.Description))
+            {
+                return BadRequest(new
+                {
+                    message = "Category name and description are required."
+                });
+            }
 
             try
             {
@@ -197,24 +212,103 @@ namespace poepart2.Controllers
                 using SqlCommand command =
                     new SqlCommand(query, connection);
 
-                command.Parameters.AddWithValue("@name", name);
-                command.Parameters.AddWithValue("@description", description);
+                command.Parameters.AddWithValue(
+                    "@name", request.Name.Trim());
+
+                command.Parameters.AddWithValue(
+                    "@description", request.Description.Trim());
+
                 command.Parameters.AddWithValue("@id", id);
 
                 int rowsAffected = command.ExecuteNonQuery();
 
-                message = rowsAffected > 0
-                    ? "Category updated successfully."
-                    : "Category not found.";
+                if (rowsAffected == 0)
+                {
+                    return NotFound(new
+                    {
+                        message = "Category not found."
+                    });
+                }
+
+                return Ok(new
+                {
+                    message = "Category updated successfully."
+                });
             }
-            catch (Exception error)
+            catch (Exception)
             {
-                message = error.Message;
+                return StatusCode(500, new
+                {
+                    message = "An error occurred while updating the category."
+                });
+            }
+        }
+
+        // DELETE: api/Category/1
+        // Delete category
+        [HttpDelete("{id:int}")]
+        public IActionResult DeleteCategory(int id)
+        {
+            if (id <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Category ID must be greater than zero."
+                });
             }
 
-            return message;
+            try
+            {
+                using SqlConnection connection =
+                    new SqlConnection(connectionString);
+
+                connection.Open();
+
+                string query =
+                    "DELETE FROM Category WHERE categoryID = @id";
+
+                using SqlCommand command =
+                    new SqlCommand(query, connection);
+
+                command.Parameters.AddWithValue("@id", id);
+
+                int rowsAffected = command.ExecuteNonQuery();
+
+                if (rowsAffected == 0)
+                {
+                    return NotFound(new
+                    {
+                        message = "Category not found."
+                    });
+                }
+
+                return Ok(new
+                {
+                    message = "Category deleted successfully."
+                });
+            }
+            catch (SqlException)
+            {
+                return Conflict(new
+                {
+                    message = "The category could not be deleted. It may be referenced by other records."
+                });
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, new
+                {
+                    message = "An error occurred while deleting the category."
+                });
+            }
         }
     }
 
+    // Request model for adding and updating categories
+    public class CategoryRequest
+    {
+        public string Name { get; set; } = string.Empty;
 
+        public string Description { get; set; } = string.Empty;
+    }
 }
