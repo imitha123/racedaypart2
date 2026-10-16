@@ -1,18 +1,7 @@
 ```yaml
 name: RaceDay Build and Unit Tests
 
-on:
-  push:
-    branches:
-      - master
-      - main
-
-  pull_request:
-    branches:
-      - master
-      - main
-
-  workflow_dispatch:
+on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build-and-test:
